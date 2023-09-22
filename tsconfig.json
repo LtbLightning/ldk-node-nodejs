@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2018",
-    "strict": true,
+    "strict": false,
     "moduleResolution": "node",
     "module": "CommonJS",
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "noUnusedParameters": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true

@@ -34,6 +34,7 @@ export class Config {
 }
 export class Builder {
   constructor()
+  static fromConfig(config: Config): this
   setEntropyBip39Mnemonic(mnemonic: string, passphrase?: string | undefined | null): this
   setEsploraServer(url: string): this
   build(): Node
@@ -41,4 +42,5 @@ export class Builder {
 export class Node {
   start(): boolean
   nodeId(): string
+  listeningAddress(): void
 }

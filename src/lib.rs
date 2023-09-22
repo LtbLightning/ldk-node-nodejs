@@ -54,16 +54,19 @@ impl From<LogLevel> for ldk_node::LogLevel {
 #[napi]
 pub struct NetAddress {
   inner: ldk_node::NetAddress,
+  ipv4: String,
+  port: u32,
 }
 
 #[napi]
 impl NetAddress {
   #[napi(constructor)]
   pub fn new(ipv4: String, port: u32) -> Result<Self, Error> {
-    println!("IP{:}   ===>  Port {:}", ipv4, port);
-    let addr = "sdf";
+    let addr = format!("{}:{}", ipv4, port).to_string();
     Ok(NetAddress {
-      inner: ldk_node::NetAddress::from_str(addr).unwrap(),
+      inner: ldk_node::NetAddress::from_str(&addr).unwrap(),
+      ipv4: ipv4,
+      port: port,
     })
   }
 }
@@ -86,12 +89,10 @@ impl Config {
     fee_rate_cache_update_interval_secs: u32,
     log_level: LogLevel,
   ) -> Result<Self, Error> {
-    println!("{:?}", &listening_address.inner);
-
     let config = ldk_node::Config {
       storage_dir_path: storage_dir_path,
       network: network.into(),
-      listening_address: None,
+      listening_address: Some(listening_address.inner.to_owned()),
       default_cltv_expiry_delta: default_cltv_expiry_delta,
       onchain_wallet_sync_interval_secs: u64::from(onchain_wallet_sync_interval_secs),
       wallet_sync_interval_secs: u64::from(wallet_sync_interval_secs),
@@ -115,6 +116,13 @@ impl Builder {
     Builder {
       inner: ldk_node::Builder::new(),
     }
+  }
+
+  #[napi]
+  pub fn from_config(config: &Config) -> Result<Self, Error> {
+    Ok(Builder {
+      inner: ldk_node::Builder::from_config(config.inner.to_owned()),
+    })
   }
 
   #[napi]
@@ -142,12 +150,6 @@ impl Builder {
       inner: self.inner.build().unwrap(),
     })
   }
-
-  // #[napi]
-  // pub fn from_config(&self, config: &Config) -> Result<(), Error> {
-  //   ldk_node::Builder::from_config(config.unwrap());
-  //   Ok(())
-  // }
 }
 
 #[napi]
@@ -166,5 +168,11 @@ impl Node {
   #[napi]
   pub fn node_id(&mut self) -> String {
     self.inner.node_id().to_string()
+  }
+
+  #[napi]
+  pub fn listening_address(&mut self) {
+    let addr = self.inner.listening_address().to_owned();
+    println!("{:?}", addr)
   }
 }
