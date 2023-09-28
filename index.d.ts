@@ -34,13 +34,18 @@ export class Config {
 }
 export class Builder {
   constructor()
-  static fromConfig(config: Config): this
-  setEntropyBip39Mnemonic(mnemonic: string, passphrase?: string | undefined | null): this
-  setEsploraServer(url: string): this
+  static fromConfig(config: Config): Builder
+  setEntropyBip39Mnemonic(mnemonic: string, passphrase?: string | undefined | null): boolean
+  setEsploraServer(url: string): boolean
   build(): Node
 }
 export class Node {
   start(): boolean
+  stop(): boolean
+  syncWallets(): boolean
   nodeId(): string
-  listeningAddress(): void
+  listeningAddress(): string
+  newOnchainAddress(): string
+  spendableOnchainBalanceSats(): bigint
+  totalOnchainBalanceSats(): bigint
 }

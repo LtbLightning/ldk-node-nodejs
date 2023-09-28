@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use ldk_node::generate_entropy_mnemonic;
+use ldk_node::bip39::Mnemonic;
 use ldk_node::io::SqliteStore;
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
@@ -54,8 +54,6 @@ impl From<LogLevel> for ldk_node::LogLevel {
 #[napi]
 pub struct NetAddress {
   inner: ldk_node::NetAddress,
-  ipv4: String,
-  port: u32,
 }
 
 #[napi]
@@ -65,8 +63,6 @@ impl NetAddress {
     let addr = format!("{}:{}", ipv4, port).to_string();
     Ok(NetAddress {
       inner: ldk_node::NetAddress::from_str(&addr).unwrap(),
-      ipv4: ipv4,
-      port: port,
     })
   }
 }
@@ -119,10 +115,10 @@ impl Builder {
   }
 
   #[napi]
-  pub fn from_config(config: &Config) -> Result<Self, Error> {
-    Ok(Builder {
+  pub fn from_config(config: &Config) -> Self {
+    Builder {
       inner: ldk_node::Builder::from_config(config.inner.to_owned()),
-    })
+    }
   }
 
   #[napi]
@@ -130,18 +126,23 @@ impl Builder {
     &mut self,
     mnemonic: String,
     passphrase: Option<String>,
-  ) -> &Self {
-    let seed = generate_entropy_mnemonic();
+  ) -> Result<bool, Error> {
+    let mnemonic_seed = Mnemonic::from_str(&mnemonic).unwrap();
+    let password = Some(if passphrase != None {
+      passphrase.unwrap()
+    } else {
+      String::from("")
+    });
     self
       .inner
-      .set_entropy_bip39_mnemonic(seed, Some(String::from("")));
-    self
+      .set_entropy_bip39_mnemonic(mnemonic_seed, password);
+    Ok(true)
   }
 
   #[napi]
-  pub fn set_esplora_server(&mut self, url: String) -> &Self {
+  pub fn set_esplora_server(&mut self, url: String) -> Result<bool, Error> {
     self.inner.set_esplora_server(url.to_string());
-    self
+    Ok(true)
   }
 
   #[napi]
@@ -166,13 +167,45 @@ impl Node {
   }
 
   #[napi]
+  pub fn stop(&mut self) -> Result<bool, Error> {
+    let _ = self.inner.stop();
+    Ok(true)
+  }
+
+  #[napi]
+  pub fn sync_wallets(&mut self) -> Result<bool, Error> {
+    let _ = self.inner.sync_wallets();
+    Ok(true)
+  }
+
+  #[napi]
   pub fn node_id(&mut self) -> String {
     self.inner.node_id().to_string()
   }
 
   #[napi]
-  pub fn listening_address(&mut self) {
-    let addr = self.inner.listening_address().to_owned();
-    println!("{:?}", addr)
+  pub fn listening_address(&mut self) -> String {
+    self
+      .inner
+      .listening_address()
+      .unwrap()
+      .to_owned()
+      .to_string()
+  }
+
+  #[napi]
+  pub fn new_onchain_address(&mut self) -> String {
+    let address = self.inner.new_onchain_address();
+    address.unwrap().to_owned().to_string()
+  }
+
+  #[napi]
+  pub fn spendable_onchain_balance_sats(&mut self) -> Result<u64, Error> {
+    Ok(self.inner.spendable_onchain_balance_sats().unwrap())
+  }
+
+  #[napi]
+  pub fn total_onchain_balance_sats(&mut self) -> Result<u64, Error> {
+    Ok(self.inner.total_onchain_balance_sats().unwrap())
   }
 }
