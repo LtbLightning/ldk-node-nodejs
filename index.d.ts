@@ -32,20 +32,38 @@ export class Config {
     logLevel: LogLevel,
   )
 }
+export class PeerDetails {}
+export class PublicKey {
+  nodeId: string
+  constructor(nodeId: string)
+}
 export class Builder {
   constructor()
   static fromConfig(config: Config): Builder
+  setEntropySeedPath(seedPath: string): boolean
+  setEntropySeedBytes(seedBytes: Array<number>): boolean
   setEntropyBip39Mnemonic(mnemonic: string, passphrase?: string | undefined | null): boolean
   setEsploraServer(url: string): boolean
+  setGossipSourceP2P(): boolean
+  setGossipSourceRgs(rgsServerUrl: string): boolean
+  setStorageDirPath(storageDirPath: string): boolean
+  setNetwork(network: Network): boolean
+  setListeningAddress(listeningAddress: NetAddress): boolean
+  setLogLevel(level: LogLevel): boolean
   build(): Node
 }
 export class Node {
   start(): boolean
   stop(): boolean
   syncWallets(): boolean
-  nodeId(): string
-  listeningAddress(): string
+  nodeId(): PublicKey
+  listeningAddress(): string | null
   newOnchainAddress(): string
   spendableOnchainBalanceSats(): bigint
   totalOnchainBalanceSats(): bigint
+  receivePayment(amountMsat: number, description: string, expirySecs: number): string
+  receiveVariableAmountPayment(description: string, expirySecs: number): string
+  connect(nodeId: PublicKey, address: NetAddress, persist: boolean): boolean
+  listPeers(): unknown[]
+  connectOpenChannel(nodeId: PublicKey, address: NetAddress, channelAmountSats: number): boolean
 }
