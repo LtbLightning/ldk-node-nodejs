@@ -1,57 +1,16 @@
 #![deny(clippy::all)]
-
-use std::str::FromStr;
+pub mod utils;
 
 use ldk_node::bip39::Mnemonic;
 use ldk_node::io::SqliteStore;
-use napi::bindgen_prelude::Array;
-use napi::bindgen_prelude::FromNapiValue;
-use napi::bindgen_prelude::ToNapiValue;
-use napi::Env;
 use napi::Error;
 use napi_derive::napi;
+use std::str::FromStr;
+use utils::ChannelDetails;
 
-#[napi]
-pub enum Network {
-  Bitcoin,
-  Regtest,
-  Signet,
-  Testnet,
-}
-
-impl From<Network> for ldk_node::bitcoin::Network {
-  fn from(item: Network) -> Self {
-    match item {
-      Network::Bitcoin => ldk_node::bitcoin::Network::Bitcoin,
-      Network::Regtest => ldk_node::bitcoin::Network::Regtest,
-      Network::Signet => ldk_node::bitcoin::Network::Signet,
-      Network::Testnet => ldk_node::bitcoin::Network::Testnet,
-    }
-  }
-}
-
-#[napi]
-pub enum LogLevel {
-  Gossip,
-  Trace,
-  Debug,
-  Warn,
-  Info,
-  Error,
-}
-
-impl From<LogLevel> for ldk_node::LogLevel {
-  fn from(item: LogLevel) -> Self {
-    match item {
-      LogLevel::Gossip => ldk_node::LogLevel::Gossip,
-      LogLevel::Trace => ldk_node::LogLevel::Trace,
-      LogLevel::Debug => ldk_node::LogLevel::Debug,
-      LogLevel::Warn => ldk_node::LogLevel::Warn,
-      LogLevel::Info => ldk_node::LogLevel::Info,
-      LogLevel::Error => ldk_node::LogLevel::Error,
-    }
-  }
-}
+use utils::LogLevel;
+use utils::Network;
+use utils::PeerDetails;
 
 #[napi]
 pub struct NetAddress {
@@ -70,24 +29,8 @@ impl NetAddress {
 }
 
 #[napi]
-pub struct Config {
-  inner: ldk_node::Config,
-}
-#[napi]
-pub struct PeerDetails {
-  inner: ldk_node::PeerDetails,
-}
-
-impl PeerDetails {
-  pub fn new(peer: ldk_node::PeerDetails) -> Self {
-    PeerDetails { inner: peer }
-  }
-}
-
-#[napi]
 pub struct PublicKey {
   inner: ldk_node::bitcoin::secp256k1::PublicKey,
-  pub node_id: String,
 }
 
 #[napi]
@@ -96,9 +39,13 @@ impl PublicKey {
   pub fn new(node_id: String) -> Result<Self, Error> {
     Ok(PublicKey {
       inner: ldk_node::bitcoin::secp256k1::PublicKey::from_str(&node_id).unwrap(),
-      node_id: node_id,
     })
   }
+}
+
+#[napi]
+pub struct Config {
+  inner: ldk_node::Config,
 }
 
 #[napi]
@@ -258,12 +205,8 @@ impl Node {
   }
 
   #[napi]
-  pub fn node_id(&mut self) -> Result<PublicKey, Error> {
-    let node_id = self.inner.node_id().to_owned();
-    Ok(PublicKey {
-      inner: self.inner.node_id().to_owned(),
-      node_id: node_id.to_string(),
-    })
+  pub fn node_id(&mut self) -> String {
+    self.inner.node_id().to_owned().to_string()
   }
 
   #[napi]
@@ -283,13 +226,13 @@ impl Node {
   }
 
   #[napi]
-  pub fn spendable_onchain_balance_sats(&mut self) -> Result<u64, Error> {
-    Ok(self.inner.spendable_onchain_balance_sats().unwrap())
+  pub fn spendable_onchain_balance_sats(&mut self) -> Result<u32, Error> {
+    Ok(self.inner.spendable_onchain_balance_sats().unwrap() as u32)
   }
 
   #[napi]
-  pub fn total_onchain_balance_sats(&mut self) -> Result<u64, Error> {
-    Ok(self.inner.total_onchain_balance_sats().unwrap())
+  pub fn total_onchain_balance_sats(&mut self) -> Result<u32, Error> {
+    Ok(self.inner.total_onchain_balance_sats().unwrap() as u32)
   }
 
   #[napi]
@@ -339,24 +282,13 @@ impl Node {
   }
 
   #[napi]
-  pub fn list_peers(&mut self, env: Env) -> Array {
-    let mut arr = env.create_array(2).unwrap();
-
-    arr.insert(1).unwrap();
-    arr.insert("test").unwrap();
-
-    arr
-
-    // let peers = self.inner.list_peers();
-    // let mut arr = env.create_array(peers.len() as u32).unwrap();
-    // for peer in &peers {
-    //   let detail = PeerDetails::new(peer.to_owned());
-
-    //   arr.insert(detail).unwrap();
-    // }
-
-    // // println!("Array {:?}", arr.to_owned());
-    // arr
+  pub fn list_peers(&mut self) -> Vec<PeerDetails> {
+    let response_list = self.inner.list_peers();
+    let mut list = Vec::new();
+    for item in &response_list {
+      list.push(PeerDetails::new(item.to_owned()));
+    }
+    list
   }
 
   #[napi]
@@ -374,8 +306,16 @@ impl Node {
       None,
       false,
     );
-
-    print!("List channels==> {:?}", self.inner.list_channels());
     Ok(true)
+  }
+
+  #[napi]
+  pub fn list_channels(&mut self) -> Vec<ChannelDetails> {
+    let response_list = self.inner.list_channels();
+    let mut list = Vec::new();
+    for item in &response_list {
+      list.push(ChannelDetails::new(item.to_owned()));
+    }
+    list
   }
 }

@@ -25,7 +25,7 @@ const main = () => {
     const node: Node = builder.build()
 
     console.log('Node Started ====>', node.start())
-    console.log('Node Id ====>', node.nodeId().nodeId)
+    console.log('Node Id ====>', node.nodeId())
     console.log('Listening Address ====>', node.listeningAddress())
     console.log('Funding Address ====>', node.newOnchainAddress())
     console.log('Sync ====>', node.syncWallets())
@@ -40,6 +40,8 @@ const main = () => {
     console.log('Peers ====>', node.listPeers())
 
     const openChannel = node.connectOpenChannel(new PublicKey(peerConfig.node_id), peerConfig.address, 777000)
+    console.log('Opened channel ====>', openChannel)
+    console.log('channels ====>', node.listChannels())
   } catch (e) {
     console.log('Rust Panic error', e, e.stackTrace)
   }
