@@ -3,9 +3,11 @@ pub mod utils;
 
 use ldk_node::bip39::Mnemonic;
 use ldk_node::io::SqliteStore;
+use ldk_node::lightning_invoice::Invoice;
 use napi::Error;
 use napi_derive::napi;
 use std::str::FromStr;
+use utils::node_error;
 use utils::ChannelDetails;
 
 use utils::LogLevel;
@@ -318,4 +320,21 @@ impl Node {
     }
     list
   }
+
+  #[napi]
+  pub fn send_payment(&mut self, invoice: String) -> Result<PaymentHash, Error> {
+    let invoice_struct = Invoice::from_str(&invoice).unwrap();
+    match self.inner.send_payment(&invoice_struct) {
+      Ok(payment_hash) => Ok(PaymentHash {
+        inner: payment_hash,
+      }),
+      Err(e) => Err(node_error(e)),
+    }
+  }
+}
+
+#[napi]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PaymentHash {
+  inner: ldk_node::lightning::ln::PaymentHash,
 }

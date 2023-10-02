@@ -96,4 +96,6 @@ export class Node {
   listPeers(): Array<PeerDetails>
   connectOpenChannel(nodeId: PublicKey, address: NetAddress, channelAmountSats: number): boolean
   listChannels(): Array<ChannelDetails>
+  sendPayment(invoice: string): PaymentHash
 }
+export class PaymentHash {}

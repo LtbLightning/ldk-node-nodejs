@@ -1,5 +1,6 @@
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
+use napi::Error;
 use napi_derive::napi;
 
 #[napi]
@@ -67,14 +68,19 @@ impl PeerDetails {
 #[napi]
 #[derive(Debug, Clone, Copy)]
 pub struct ChannelId {
-  inner: ldk_node::ChannelId,
+  inner: [u8; 32],
 }
 
-impl ChannelId {
-  pub fn new(channel_id: ldk_node::ChannelId) -> Self {
-    ChannelId {
-      inner: channel_id.to_owned(),
-    }
+#[napi]
+impl From<ldk_node::ChannelId> for ChannelId {
+  fn from(value: ldk_node::ChannelId) -> Self {
+    ChannelId { inner: value.0 }
+  }
+}
+#[napi]
+impl From<ChannelId> for ldk_node::ChannelId {
+  fn from(value: ChannelId) -> Self {
+    ldk_node::ChannelId(value.inner)
   }
 }
 
@@ -103,7 +109,7 @@ pub struct UserChannelId {
 #[napi(object)]
 #[derive(Debug)]
 pub struct ChannelDetails {
-  //   pub channel_id: ChannelId,
+  // pub channel_id: ChannelId,
   pub counterparty_node_id: String,
   pub funding_txo: Option<OutPoint>,
   pub channel_value_sats: u32,
@@ -132,12 +138,17 @@ impl ChannelDetails {
       punishment_value = Some(u32::from(punishment.unwrap() as u32));
     };
 
+    let ch_id = channel.channel_id;
+    println!("Channel Id:: {:?}", ch_id);
+    let converted = ChannelId { inner: ch_id.0 };
+
     ChannelDetails {
+      // channel_id: ChannelId::from(channel.channel_id),
       counterparty_node_id: channel.counterparty_node_id.to_string(),
       funding_txo: OutPoint::new(channel.funding_txo),
       channel_value_sats: channel.channel_value_sats as u32,
       unspendable_punishment_reserve: punishment_value,
-    //   user_channel_id: channel.user_channel_id.into(),
+      //   user_channel_id: channel.user_channel_id.into(),
       feerate_sat_per_1000_weight: channel.feerate_sat_per_1000_weight,
       balance_msat: channel.balance_msat as u32,
       outbound_capacity_msat: channel.outbound_capacity_msat as u32,
@@ -151,4 +162,12 @@ impl ChannelDetails {
       cltv_expiry_delta: channel.cltv_expiry_delta,
     }
   }
+}
+
+pub fn node_error(e: ldk_node::NodeError) -> napi::Error {
+  Error::new(napi::Status::GenericFailure, e.to_string())
+}
+
+pub fn build_error(e: ldk_node::BuildError) -> napi::Error {
+  Error::new(napi::Status::GenericFailure, e.to_string())
 }

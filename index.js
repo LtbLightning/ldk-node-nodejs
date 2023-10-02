@@ -234,7 +234,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { Network, LogLevel, ChannelId, NetAddress, PublicKey, Config, Builder, Node } = nativeBinding
+const { Network, LogLevel, ChannelId, NetAddress, PublicKey, Config, Builder, Node, PaymentHash } = nativeBinding
 
 module.exports.Network = Network
 module.exports.LogLevel = LogLevel
@@ -244,3 +244,4 @@ module.exports.PublicKey = PublicKey
 module.exports.Config = Config
 module.exports.Builder = Builder
 module.exports.Node = Node
+module.exports.PaymentHash = PaymentHash
