@@ -23,6 +23,9 @@ export interface PeerDetails {
   isPersisted: boolean
   isConnected: boolean
 }
+export interface ChannelId {
+  channelIdHex: Array<number>
+}
 export interface OutPoint {
   txid: string
   vout: number
@@ -31,10 +34,12 @@ export interface UserChannelId {
   userChannelIdHex: string
 }
 export interface ChannelDetails {
+  channelId: ChannelId
   counterpartyNodeId: string
   fundingTxo?: OutPoint
   channelValueSats: number
   unspendablePunishmentReserve?: number
+  userChannelId: UserChannelId
   feerateSatPer1000Weight: number
   balanceMsat: number
   outboundCapacityMsat: number
@@ -47,7 +52,6 @@ export interface ChannelDetails {
   isPublic: boolean
   cltvExpiryDelta?: number
 }
-export class ChannelId {}
 export class NetAddress {
   constructor(ipv4: string, port: number)
 }
@@ -93,9 +97,13 @@ export class Node {
   receivePayment(amountMsat: number, description: string, expirySecs: number): string
   receiveVariableAmountPayment(description: string, expirySecs: number): string
   connect(nodeId: PublicKey, address: NetAddress, persist: boolean): boolean
+  disconnect(counterpartyNodeId: PublicKey): boolean
   listPeers(): Array<PeerDetails>
   connectOpenChannel(nodeId: PublicKey, address: NetAddress, channelAmountSats: number): boolean
+  closeChannel(channelId: ChannelId, counterpartyNodeId: PublicKey): boolean
   listChannels(): Array<ChannelDetails>
   sendPayment(invoice: string): PaymentHash
 }
-export class PaymentHash {}
+export class PaymentHash {
+  field0: Array<number>
+}

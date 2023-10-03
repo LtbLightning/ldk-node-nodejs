@@ -9,6 +9,7 @@ use napi_derive::napi;
 use std::str::FromStr;
 use utils::node_error;
 use utils::ChannelDetails;
+use utils::ChannelId;
 
 use utils::LogLevel;
 use utils::Network;
@@ -31,6 +32,7 @@ impl NetAddress {
 }
 
 #[napi]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublicKey {
   inner: ldk_node::bitcoin::secp256k1::PublicKey,
 }
@@ -284,6 +286,12 @@ impl Node {
   }
 
   #[napi]
+  pub fn disconnect(&mut self, counterparty_node_id: &PublicKey) -> Result<bool, Error> {
+    let _ = self.inner.disconnect(counterparty_node_id.inner.to_owned());
+    Ok(true)
+  }
+
+  #[napi]
   pub fn list_peers(&mut self) -> Vec<PeerDetails> {
     let response_list = self.inner.list_peers();
     let mut list = Vec::new();
@@ -312,10 +320,26 @@ impl Node {
   }
 
   #[napi]
+  pub fn close_channel(
+    &mut self,
+    channel_id: ChannelId,
+    counterparty_node_id: &PublicKey,
+  ) -> Result<bool, Error> {
+    match self.inner.close_channel(
+      &ChannelId::from_nodejs(channel_id),
+      counterparty_node_id.inner.to_owned(),
+    ) {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
+  }
+
+  #[napi]
   pub fn list_channels(&mut self) -> Vec<ChannelDetails> {
     let response_list = self.inner.list_channels();
     let mut list = Vec::new();
     for item in &response_list {
+      println!("Channel List detail Rust: {:#?}", item);
       list.push(ChannelDetails::new(item.to_owned()));
     }
     list
@@ -325,16 +349,22 @@ impl Node {
   pub fn send_payment(&mut self, invoice: String) -> Result<PaymentHash, Error> {
     let invoice_struct = Invoice::from_str(&invoice).unwrap();
     match self.inner.send_payment(&invoice_struct) {
-      Ok(payment_hash) => Ok(PaymentHash {
-        inner: payment_hash,
-      }),
+      Ok(payment_hash) => Ok(get_payment_hash(payment_hash)),
       Err(e) => Err(node_error(e)),
     }
   }
 }
 
 #[napi]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PaymentHash {
   inner: ldk_node::lightning::ln::PaymentHash,
+  pub field0: Vec<u8>,
+}
+
+pub fn get_payment_hash(hash: ldk_node::lightning::ln::PaymentHash) -> PaymentHash {
+  PaymentHash {
+    inner: hash,
+    field0: hash.0.to_vec(),
+  }
 }

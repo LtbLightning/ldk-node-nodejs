@@ -1,3 +1,4 @@
+use napi::bindgen_prelude::Array;
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
 use napi::Error;
@@ -65,22 +66,21 @@ impl PeerDetails {
   }
 }
 
-#[napi]
-#[derive(Debug, Clone, Copy)]
+#[napi(object)]
+#[derive(Debug, Clone)]
 pub struct ChannelId {
-  inner: [u8; 32],
+  pub channel_id_hex: Vec<u8>,
 }
 
-#[napi]
-impl From<ldk_node::ChannelId> for ChannelId {
-  fn from(value: ldk_node::ChannelId) -> Self {
-    ChannelId { inner: value.0 }
+impl ChannelId {
+  pub fn from_ldk_node(value: ldk_node::ChannelId) -> Self {
+    ChannelId {
+      channel_id_hex: value.0.to_vec(),
+    }
   }
-}
-#[napi]
-impl From<ChannelId> for ldk_node::ChannelId {
-  fn from(value: ChannelId) -> Self {
-    ldk_node::ChannelId(value.inner)
+
+  pub fn from_nodejs(channel_id: ChannelId) -> ldk_node::ChannelId {
+    ldk_node::ChannelId(channel_id.channel_id_hex.to_owned().try_into().unwrap())
   }
 }
 
@@ -101,7 +101,7 @@ impl OutPoint {
 }
 
 #[napi(object)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UserChannelId {
   pub user_channel_id_hex: String,
 }
@@ -109,12 +109,12 @@ pub struct UserChannelId {
 #[napi(object)]
 #[derive(Debug)]
 pub struct ChannelDetails {
-  // pub channel_id: ChannelId,
+  pub channel_id: ChannelId,
   pub counterparty_node_id: String,
   pub funding_txo: Option<OutPoint>,
   pub channel_value_sats: u32,
   pub unspendable_punishment_reserve: Option<u32>,
-  //   pub user_channel_id: UserChannelId,
+  pub user_channel_id: UserChannelId,
   pub feerate_sat_per_1000_weight: u32,
   pub balance_msat: u32,
   pub outbound_capacity_msat: u32,
@@ -138,17 +138,15 @@ impl ChannelDetails {
       punishment_value = Some(u32::from(punishment.unwrap() as u32));
     };
 
-    let ch_id = channel.channel_id;
-    println!("Channel Id:: {:?}", ch_id);
-    let converted = ChannelId { inner: ch_id.0 };
-
     ChannelDetails {
-      // channel_id: ChannelId::from(channel.channel_id),
+      channel_id: ChannelId::from_ldk_node(channel.channel_id),
       counterparty_node_id: channel.counterparty_node_id.to_string(),
       funding_txo: OutPoint::new(channel.funding_txo),
       channel_value_sats: channel.channel_value_sats as u32,
       unspendable_punishment_reserve: punishment_value,
-      //   user_channel_id: channel.user_channel_id.into(),
+      user_channel_id: UserChannelId {
+        user_channel_id_hex: channel.user_channel_id.0.to_string(),
+      },
       feerate_sat_per_1000_weight: channel.feerate_sat_per_1000_weight,
       balance_msat: channel.balance_msat as u32,
       outbound_capacity_msat: channel.outbound_capacity_msat as u32,
