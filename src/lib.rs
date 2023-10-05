@@ -8,10 +8,13 @@ use napi::Error;
 use napi_derive::napi;
 use std::str::FromStr;
 use utils::node_error;
+use utils::Address;
+use utils::ChannelConfig;
 use utils::ChannelDetails;
 use utils::ChannelId;
 use utils::PaymentDetails;
 use utils::PaymentHash;
+use utils::Txid;
 
 use utils::LogLevel;
 use utils::Network;
@@ -226,9 +229,29 @@ impl Node {
   }
 
   #[napi]
-  pub fn new_onchain_address(&mut self) -> Result<String, Error> {
+  pub fn new_onchain_address(&mut self) -> Result<Address, Error> {
     let address = self.inner.new_onchain_address();
-    Ok(address.unwrap().to_owned().to_string())
+    Ok(Address::from_ldk_node(address.unwrap()))
+  }
+
+  #[napi]
+  pub fn send_to_onchain_address(
+    &mut self,
+    address: Address,
+    amount_msat: u32,
+  ) -> Result<Txid, Error> {
+    let txid = self
+      .inner
+      .send_to_onchain_address(&Address::from_nodejs(&address), amount_msat as u64);
+    Ok(Txid::from_ldk_node(txid.unwrap()))
+  }
+
+  #[napi]
+  pub fn send_all_to_onchain_address(&mut self, address: Address) -> Result<Txid, Error> {
+    let txid = self
+      .inner
+      .send_all_to_onchain_address(&Address::from_nodejs(&address));
+    Ok(Txid::from_ldk_node(txid.unwrap()))
   }
 
   #[napi]
@@ -239,6 +262,74 @@ impl Node {
   #[napi]
   pub fn total_onchain_balance_sats(&mut self) -> Result<u32, Error> {
     Ok(self.inner.total_onchain_balance_sats().unwrap() as u32)
+  }
+
+  #[napi]
+  pub fn connect(
+    &mut self,
+    node_id: &PublicKey,
+    address: &NetAddress,
+    persist: bool,
+  ) -> Result<bool, Error> {
+    let _ = self
+      .inner
+      .connect(node_id.inner.to_owned(), address.inner.to_owned(), persist);
+    Ok(true)
+  }
+
+  #[napi]
+  pub fn disconnect(&mut self, counterparty_node_id: &PublicKey) -> Result<bool, Error> {
+    let _ = self.inner.disconnect(counterparty_node_id.inner.to_owned());
+    Ok(true)
+  }
+
+  #[napi]
+  pub fn connect_open_channel(
+    &mut self,
+    node_id: &PublicKey,
+    address: &NetAddress,
+    channel_amount_sats: u32,
+    push_to_counterparty_msat: Option<u32>,
+    channel_config: Option<&ChannelConfig>,
+    announce_channel: bool,
+  ) -> Result<bool, Error> {
+    let remote_msats;
+    if push_to_counterparty_msat.is_none() {
+      remote_msats = None
+    } else {
+      remote_msats = Some(push_to_counterparty_msat.unwrap() as u64)
+    }
+
+    let ch_config;
+    if channel_config.is_none() {
+      ch_config = None
+    } else {
+      ch_config = Some(ChannelConfig::new(channel_config.unwrap().to_owned()))
+    }
+    let _ = self.inner.connect_open_channel(
+      node_id.inner.to_owned(),
+      address.inner.to_owned(),
+      channel_amount_sats as u64,
+      remote_msats,
+      ch_config,
+      announce_channel,
+    );
+    Ok(true)
+  }
+
+  #[napi]
+  pub fn close_channel(
+    &mut self,
+    channel_id: ChannelId,
+    counterparty_node_id: &PublicKey,
+  ) -> Result<bool, Error> {
+    match self.inner.close_channel(
+      &ChannelId::from_nodejs(channel_id),
+      counterparty_node_id.inner.to_owned(),
+    ) {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -272,78 +363,6 @@ impl Node {
         .unwrap()
         .to_string(),
     )
-  }
-
-  #[napi]
-  pub fn connect(
-    &mut self,
-    node_id: &PublicKey,
-    address: &NetAddress,
-    persist: bool,
-  ) -> Result<bool, Error> {
-    let _ = self
-      .inner
-      .connect(node_id.inner.to_owned(), address.inner.to_owned(), persist);
-    Ok(true)
-  }
-
-  #[napi]
-  pub fn disconnect(&mut self, counterparty_node_id: &PublicKey) -> Result<bool, Error> {
-    let _ = self.inner.disconnect(counterparty_node_id.inner.to_owned());
-    Ok(true)
-  }
-
-  #[napi]
-  pub fn list_peers(&mut self) -> Vec<PeerDetails> {
-    let response_list = self.inner.list_peers();
-    let mut list = Vec::new();
-    for item in &response_list {
-      list.push(PeerDetails::new(item.to_owned()));
-    }
-    list
-  }
-
-  #[napi]
-  pub fn connect_open_channel(
-    &mut self,
-    node_id: &PublicKey,
-    address: &NetAddress,
-    channel_amount_sats: u32,
-  ) -> Result<bool, Error> {
-    let _ = self.inner.connect_open_channel(
-      node_id.inner.to_owned(),
-      address.inner.to_owned(),
-      u64::from(channel_amount_sats),
-      None,
-      None,
-      false,
-    );
-    Ok(true)
-  }
-
-  #[napi]
-  pub fn close_channel(
-    &mut self,
-    channel_id: ChannelId,
-    counterparty_node_id: &PublicKey,
-  ) -> Result<bool, Error> {
-    match self.inner.close_channel(
-      &ChannelId::from_nodejs(channel_id),
-      counterparty_node_id.inner.to_owned(),
-    ) {
-      Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
-    }
-  }
-
-  #[napi]
-  pub fn list_channels(&mut self) -> Vec<ChannelDetails> {
-    let response_list = self.inner.list_channels();
-    let mut list = Vec::new();
-    for item in &response_list {
-      list.push(ChannelDetails::new(item.to_owned()));
-    }
-    list
   }
 
   #[napi]
@@ -397,6 +416,26 @@ impl Node {
   }
 
   #[napi]
+  pub fn list_peers(&mut self) -> Vec<PeerDetails> {
+    let response_list = self.inner.list_peers();
+    let mut list = Vec::new();
+    for item in &response_list {
+      list.push(PeerDetails::new(item.to_owned()));
+    }
+    list
+  }
+
+  #[napi]
+  pub fn list_channels(&mut self) -> Vec<ChannelDetails> {
+    let response_list = self.inner.list_channels();
+    let mut list = Vec::new();
+    for item in &response_list {
+      list.push(ChannelDetails::new(item.to_owned()));
+    }
+    list
+  }
+
+  #[napi]
   pub fn payment(&mut self, payment_hash: PaymentHash) -> Result<PaymentDetails, Error> {
     let payment = self.inner.payment(&PaymentHash::from_nodejs(payment_hash));
     Ok(PaymentDetails::new(payment.unwrap()))
@@ -404,7 +443,43 @@ impl Node {
 
   #[napi]
   pub fn remove_payment(&mut self, payment_hash: PaymentHash) -> Result<bool, Error> {
-    let payment = self.inner.remove_payment(&PaymentHash::from_nodejs(payment_hash));
+    let payment = self
+      .inner
+      .remove_payment(&PaymentHash::from_nodejs(payment_hash));
     Ok(payment.unwrap())
+  }
+
+  #[napi]
+  pub fn sign_message(&mut self, msg: Vec<u8>) -> Result<String, Error> {
+    let msg = self.inner.sign_message(&msg);
+    Ok(msg.unwrap())
+  }
+
+  #[napi]
+  pub fn verify_signature(
+    &mut self,
+    msg: Vec<u8>,
+    sig: String,
+    pkey: &PublicKey,
+  ) -> Result<bool, Error> {
+    let verified = self
+      .inner
+      .verify_signature(&msg, &sig, &pkey.inner.to_owned());
+    Ok(verified)
+  }
+
+  #[napi]
+  pub fn update_channel_config(
+    &mut self,
+    channel_id: ChannelId,
+    counterparty_node_id: &PublicKey,
+    channel_config: &ChannelConfig,
+  ) -> Result<bool, Error> {
+    let _ = self.inner.update_channel_config(
+      &ChannelId::from_nodejs(channel_id),
+      counterparty_node_id.inner.to_owned(),
+      &ChannelConfig::new(channel_config.to_owned()),
+    );
+    Ok(true)
   }
 }

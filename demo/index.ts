@@ -1,5 +1,5 @@
 import express from 'express'
-import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey, ChannelId } from '../'
+import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey, ChannelId, ChannelConfig } from '../'
 
 const app: express.Application = express()
 const port: number = 300
@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
   let response = ''
   response += 'Node Id: ' + node.nodeId()
   response += '\nListening Address: ' + node.listeningAddress()
-  response += '\nFunding address: ' + node.newOnchainAddress()
+  response += '\nFunding address: ' + JSON.stringify(node.newOnchainAddress(), undefined, 2)
   response += '\nSync: ' + node.syncWallets()
   response += '\nSpendable Balance: ' + node.spendableOnchainBalanceSats()
   response += '\nTotal Balance: ' + node.totalOnchainBalanceSats()
@@ -53,9 +53,11 @@ app.get('/receive', (req, res) => {
 app.get('/send', (req, res) => {
   try {
     let invoice = `${req.query.invoice}`
-    let response = node.sendPayment(invoice)
+    // let response = node.sendPayment(invoice)
     // let response = node.sendPaymentUsingAmount(invoice, 12500)
     // let response = node.sendSpontaneousPayment(12500, new PublicKey(peerConfig.node_id))
+    // let txid = node.sendToOnchainAddress({addressHex: 'bcrt1qrcl2q4sh2mvlzlq0rv2q8tnhwldd2sjyvj3lqe'}, 12500)
+    let response = node.sendAllToOnchainAddress({ addressHex: 'bcrt1qrcl2q4sh2mvlzlq0rv2q8tnhwldd2sjyvj3lqe' })
     wrapResponse(res, JSON.stringify(response))
   } catch (e) {
     console.log(e)
@@ -65,7 +67,14 @@ app.get('/send', (req, res) => {
 
 app.get('/open_channel', (req, res) => {
   try {
-    let response = node.connectOpenChannel(new PublicKey(peerConfig.node_id), new NetAddress('127.0.0.1', 5001), 888000)
+    let response = node.connectOpenChannel(
+      new PublicKey(peerConfig.node_id),
+      new NetAddress('127.0.0.1', 5001),
+      888000,
+      null,
+      new ChannelConfig(12, 12, 12, 12, 12),
+      false,
+    )
     wrapResponse(res, response)
   } catch (e) {
     console.log(e)
@@ -89,6 +98,27 @@ app.get('/payments', (req, res) => {
   try {
     let payments = node.listPayments()
     wrapResponse(res, JSON.stringify(payments))
+  } catch (e) {
+    console.log(e)
+    wrapResponse(res, 'Failed')
+  }
+})
+
+app.get('/misc', (req, res) => {
+  try {
+    let msg = [12, 15, 18, 15, 78, 56]
+    let sign = node.signMessage(msg)
+    let verify = node.verifySignature(msg, sign, new PublicKey(peerConfig.node_id))
+
+    let channels = node.listChannels()
+    let update_channel = node.updateChannelConfig(
+      channels[0].channelId,
+      new PublicKey(peerConfig.node_id),
+      new ChannelConfig(15, 15, 15, 15, 15),
+    )
+
+    console.log('Channel config updated ====>', update_channel)
+    wrapResponse(res, 'working...')
   } catch (e) {
     console.log(e)
     wrapResponse(res, 'Failed')

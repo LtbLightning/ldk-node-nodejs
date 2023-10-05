@@ -1,4 +1,4 @@
-import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey } from '.'
+import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey, ChannelConfig } from '.'
 
 const main = () => {
   try {
@@ -39,7 +39,14 @@ const main = () => {
     console.log('Connected Peer ====>', peerConnected)
     console.log('Peers ====>', node.listPeers())
 
-    const openChannel = node.connectOpenChannel(new PublicKey(peerConfig.node_id), peerConfig.address, 777000)
+    const openChannel = node.connectOpenChannel(
+      new PublicKey(peerConfig.node_id),
+      new NetAddress('127.0.0.1', 5001),
+      888000,
+      null,
+      new ChannelConfig(12, 12, 12, 12, 12),
+      false,
+    )
     console.log('Opened channel ====>', openChannel)
     console.log('channels ====>', node.listChannels())
   } catch (e) {

@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
 use napi::Error;
 use napi_derive::napi;
 
-// use crate::get_payment_hash;
-// use crate::PaymentHash;
+use std::fmt::Write;
 
 #[napi(string_enum)]
 pub enum Network {
@@ -71,18 +72,19 @@ impl PeerDetails {
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct ChannelId {
-  pub channel_id_hex: Vec<u8>,
+  pub channel_id_hex: String,
 }
 
 impl ChannelId {
   pub fn from_ldk_node(value: ldk_node::ChannelId) -> Self {
     ChannelId {
-      channel_id_hex: value.0.to_vec(),
+      channel_id_hex: hex_str(&value.0.to_owned()),
     }
   }
 
   pub fn from_nodejs(channel_id: ChannelId) -> ldk_node::ChannelId {
-    ldk_node::ChannelId(channel_id.channel_id_hex.to_owned().try_into().unwrap())
+    let vec = to_vec(&channel_id.channel_id_hex);
+    ldk_node::ChannelId(vec.unwrap().to_owned().try_into().unwrap())
   }
 }
 
@@ -130,6 +132,7 @@ pub struct ChannelDetails {
   pub cltv_expiry_delta: Option<u16>,
 }
 
+#[napi]
 impl ChannelDetails {
   pub fn new(channel: ldk_node::ChannelDetails) -> Self {
     let punishment = channel.unspendable_punishment_reserve;
@@ -203,17 +206,11 @@ impl PaymentSecret {
 #[napi(object)]
 #[derive(Debug)]
 pub struct PaymentDetails {
-  /// The payment hash, i.e., the hash of the `preimage`.
   pub hash: PaymentHash,
-  /// The pre-image used by the payment.
   pub preimage: Option<PaymentPreimage>,
-  /// The secret used by the payment.
   pub secret: Option<PaymentSecret>,
-  /// The amount transferred.
   pub amount_msat: Option<u32>,
-  /// The direction of the payment.
   pub direction: PaymentDirection,
-  /// The status of the payment.
   pub status: PaymentStatus,
 }
 
@@ -251,16 +248,11 @@ impl PaymentDetails {
   }
 }
 
-/// Represents the current status of a payment.
-///
 #[napi(string_enum)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum PaymentStatus {
-  /// The payment is still pending.
   Pending,
-  /// The payment suceeded.
   Succeeded,
-  /// The payment failed.
   Failed,
 }
 
@@ -274,14 +266,10 @@ impl From<ldk_node::PaymentStatus> for PaymentStatus {
   }
 }
 
-/// Represents the direction of a payment.
-///
 #[napi(string_enum)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum PaymentDirection {
-  /// The payment is inbound.
   Inbound,
-  /// The payment is outbound.
   Outbound,
 }
 
@@ -319,4 +307,89 @@ impl PaymentHash {
   pub fn from_nodejs(hash: PaymentHash) -> ldk_node::lightning::ln::PaymentHash {
     ldk_node::lightning::ln::PaymentHash(hash.field0.to_owned().try_into().unwrap())
   }
+}
+
+#[napi(object)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Address {
+  pub address_hex: String,
+}
+
+impl Address {
+  pub fn from_ldk_node(address: ldk_node::bitcoin::Address) -> Address {
+    Address {
+      address_hex: address.to_string(),
+    }
+  }
+
+  pub fn from_nodejs(address: &Address) -> ldk_node::bitcoin::Address {
+    ldk_node::bitcoin::Address::from_str(&address.address_hex).unwrap()
+  }
+}
+
+#[napi(object)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Txid {
+  pub feild0: String,
+}
+
+impl Txid {
+  pub fn from_ldk_node(txid: ldk_node::bitcoin::hash_types::Txid) -> Txid {
+    Txid {
+      feild0: txid.to_string(),
+    }
+  }
+}
+
+#[napi(constructor)]
+#[derive(Clone, Debug)]
+pub struct ChannelConfig {
+  pub forwarding_fee_proportional_millionths: u32,
+  pub forwarding_fee_base_msat: u32,
+  pub cltv_expiry_delta: u16,
+  pub max_dust_htlc_exposure_msat: u32,
+  pub force_close_avoidance_max_fee_satoshis: u32,
+}
+
+#[napi]
+impl ChannelConfig {
+  pub fn new(channel_config: ChannelConfig) -> ldk_node::lightning::util::config::ChannelConfig {
+    ldk_node::lightning::util::config::ChannelConfig {
+      forwarding_fee_proportional_millionths: channel_config.forwarding_fee_proportional_millionths,
+      forwarding_fee_base_msat: channel_config.forwarding_fee_base_msat,
+      cltv_expiry_delta: channel_config.cltv_expiry_delta,
+      max_dust_htlc_exposure_msat: channel_config.max_dust_htlc_exposure_msat as u64,
+      force_close_avoidance_max_fee_satoshis: channel_config.force_close_avoidance_max_fee_satoshis
+        as u64,
+    }
+  }
+}
+
+pub fn hex_str(value: &[u8; 32]) -> String {
+  let mut res = String::with_capacity(2 * value.len());
+  for v in value {
+    write!(&mut res, "{:02x}", v).expect("Unable to write");
+  }
+  res
+}
+
+pub fn to_vec(hex: &str) -> Option<Vec<u8>> {
+  let mut out = Vec::with_capacity(hex.len() / 2);
+
+  let mut b = 0;
+  for (idx, c) in hex.as_bytes().iter().enumerate() {
+    b <<= 4;
+    match *c {
+      b'A'..=b'F' => b |= c - b'A' + 10,
+      b'a'..=b'f' => b |= c - b'a' + 10,
+      b'0'..=b'9' => b |= c - b'0',
+      _ => return None,
+    }
+    if (idx & 1) == 1 {
+      out.push(b);
+      b = 0;
+    }
+  }
+
+  Some(out)
 }

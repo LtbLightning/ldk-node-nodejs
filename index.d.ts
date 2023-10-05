@@ -24,7 +24,7 @@ export interface PeerDetails {
   isConnected: boolean
 }
 export interface ChannelId {
-  channelIdHex: Array<number>
+  channelIdHex: string
 }
 export interface OutPoint {
   txid: string
@@ -59,43 +59,44 @@ export interface PaymentSecret {
   field0: Array<number>
 }
 export interface PaymentDetails {
-  /** The payment hash, i.e., the hash of the `preimage`. */
   hash: PaymentHash
-  /** The pre-image used by the payment. */
   preimage?: PaymentPreimage
-  /** The secret used by the payment. */
   secret?: PaymentSecret
-  /** The amount transferred. */
   amountMsat?: number
-  /** The direction of the payment. */
   direction: PaymentDirection
-  /** The status of the payment. */
   status: PaymentStatus
 }
-/**
- * Represents the current status of a payment.
- *
- */
 export const enum PaymentStatus {
-  /** The payment is still pending. */
   Pending = 'Pending',
-  /** The payment suceeded. */
   Succeeded = 'Succeeded',
-  /** The payment failed. */
   Failed = 'Failed',
 }
-/**
- * Represents the direction of a payment.
- *
- */
 export const enum PaymentDirection {
-  /** The payment is inbound. */
   Inbound = 'Inbound',
-  /** The payment is outbound. */
   Outbound = 'Outbound',
 }
 export interface PaymentHash {
   field0: Array<number>
+}
+export interface Address {
+  addressHex: string
+}
+export interface Txid {
+  feild0: string
+}
+export class ChannelConfig {
+  forwardingFeeProportionalMillionths: number
+  forwardingFeeBaseMsat: number
+  cltvExpiryDelta: number
+  maxDustHtlcExposureMsat: number
+  forceCloseAvoidanceMaxFeeSatoshis: number
+  constructor(
+    forwardingFeeProportionalMillionths: number,
+    forwardingFeeBaseMsat: number,
+    cltvExpiryDelta: number,
+    maxDustHtlcExposureMsat: number,
+    forceCloseAvoidanceMaxFeeSatoshis: number,
+  )
 }
 export class NetAddress {
   constructor(ipv4: string, port: number)
@@ -136,21 +137,33 @@ export class Node {
   syncWallets(): boolean
   nodeId(): string
   listeningAddress(): string | null
-  newOnchainAddress(): string
+  newOnchainAddress(): Address
+  sendToOnchainAddress(address: Address, amountMsat: number): Txid
+  sendAllToOnchainAddress(address: Address): Txid
   spendableOnchainBalanceSats(): number
   totalOnchainBalanceSats(): number
-  receivePayment(amountMsat: number, description: string, expirySecs: number): string
-  receiveVariableAmountPayment(description: string, expirySecs: number): string
   connect(nodeId: PublicKey, address: NetAddress, persist: boolean): boolean
   disconnect(counterpartyNodeId: PublicKey): boolean
-  listPeers(): Array<PeerDetails>
-  connectOpenChannel(nodeId: PublicKey, address: NetAddress, channelAmountSats: number): boolean
+  connectOpenChannel(
+    nodeId: PublicKey,
+    address: NetAddress,
+    channelAmountSats: number,
+    pushToCounterpartyMsat: number | undefined | null,
+    channelConfig: ChannelConfig | undefined | null,
+    announceChannel: boolean,
+  ): boolean
   closeChannel(channelId: ChannelId, counterpartyNodeId: PublicKey): boolean
-  listChannels(): Array<ChannelDetails>
+  receivePayment(amountMsat: number, description: string, expirySecs: number): string
+  receiveVariableAmountPayment(description: string, expirySecs: number): string
   sendPayment(invoice: string): PaymentHash
   sendPaymentUsingAmount(invoice: string, amountMsat: number): PaymentHash
   sendSpontaneousPayment(amountMsat: number, nodeId: PublicKey): PaymentHash
   listPayments(): Array<PaymentDetails>
+  listPeers(): Array<PeerDetails>
+  listChannels(): Array<ChannelDetails>
   payment(paymentHash: PaymentHash): PaymentDetails
   removePayment(paymentHash: PaymentHash): boolean
+  signMessage(msg: Array<number>): string
+  verifySignature(msg: Array<number>, sig: string, pkey: PublicKey): boolean
+  updateChannelConfig(channelId: ChannelId, counterpartyNodeId: PublicKey, channelConfig: ChannelConfig): boolean
 }
