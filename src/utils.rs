@@ -1,10 +1,12 @@
-use napi::bindgen_prelude::Array;
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
 use napi::Error;
 use napi_derive::napi;
 
-#[napi]
+// use crate::get_payment_hash;
+// use crate::PaymentHash;
+
+#[napi(string_enum)]
 pub enum Network {
   Bitcoin,
   Regtest,
@@ -23,7 +25,7 @@ impl From<Network> for ldk_node::bitcoin::Network {
   }
 }
 
-#[napi]
+#[napi(string_enum)]
 pub enum LogLevel {
   Gossip,
   Trace,
@@ -168,4 +170,153 @@ pub fn node_error(e: ldk_node::NodeError) -> napi::Error {
 
 pub fn build_error(e: ldk_node::BuildError) -> napi::Error {
   Error::new(napi::Status::GenericFailure, e.to_string())
+}
+
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct PaymentPreimage {
+  pub field0: Vec<u8>,
+}
+
+impl PaymentPreimage {
+  pub fn from(value: ldk_node::lightning::ln::PaymentPreimage) -> Self {
+    PaymentPreimage {
+      field0: value.0.to_vec(),
+    }
+  }
+}
+
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct PaymentSecret {
+  pub field0: Vec<u8>,
+}
+
+impl PaymentSecret {
+  pub fn from(value: ldk_node::lightning::ln::PaymentSecret) -> Self {
+    PaymentSecret {
+      field0: value.0.to_vec(),
+    }
+  }
+}
+
+#[napi(object)]
+#[derive(Debug)]
+pub struct PaymentDetails {
+  /// The payment hash, i.e., the hash of the `preimage`.
+  pub hash: PaymentHash,
+  /// The pre-image used by the payment.
+  pub preimage: Option<PaymentPreimage>,
+  /// The secret used by the payment.
+  pub secret: Option<PaymentSecret>,
+  /// The amount transferred.
+  pub amount_msat: Option<u32>,
+  /// The direction of the payment.
+  pub direction: PaymentDirection,
+  /// The status of the payment.
+  pub status: PaymentStatus,
+}
+
+impl PaymentDetails {
+  pub fn new(payment: ldk_node::PaymentDetails) -> Self {
+    let amount_value;
+    if payment.amount_msat.is_none() {
+      amount_value = None;
+    } else {
+      amount_value = Some(payment.amount_msat.unwrap() as u32);
+    };
+
+    let pre_image;
+    if payment.preimage.is_none() {
+      pre_image = None;
+    } else {
+      pre_image = Some(PaymentPreimage::from(payment.preimage.unwrap()));
+    }
+
+    let secret;
+    if payment.secret.is_none() {
+      secret = None;
+    } else {
+      secret = Some(PaymentSecret::from(payment.secret.unwrap()));
+    }
+
+    PaymentDetails {
+      hash: PaymentHash::from_ldk_node(payment.hash),
+      preimage: pre_image,
+      secret: secret,
+      amount_msat: amount_value,
+      direction: payment.direction.into(),
+      status: payment.status.into(),
+    }
+  }
+}
+
+/// Represents the current status of a payment.
+///
+#[napi(string_enum)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum PaymentStatus {
+  /// The payment is still pending.
+  Pending,
+  /// The payment suceeded.
+  Succeeded,
+  /// The payment failed.
+  Failed,
+}
+
+impl From<ldk_node::PaymentStatus> for PaymentStatus {
+  fn from(value: ldk_node::PaymentStatus) -> Self {
+    match value {
+      ldk_node::PaymentStatus::Pending => PaymentStatus::Pending,
+      ldk_node::PaymentStatus::Succeeded => PaymentStatus::Succeeded,
+      ldk_node::PaymentStatus::Failed => PaymentStatus::Failed,
+    }
+  }
+}
+
+/// Represents the direction of a payment.
+///
+#[napi(string_enum)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum PaymentDirection {
+  /// The payment is inbound.
+  Inbound,
+  /// The payment is outbound.
+  Outbound,
+}
+
+impl From<ldk_node::PaymentDirection> for PaymentDirection {
+  fn from(value: ldk_node::PaymentDirection) -> Self {
+    match value {
+      ldk_node::PaymentDirection::Inbound => PaymentDirection::Inbound,
+      ldk_node::PaymentDirection::Outbound => PaymentDirection::Outbound,
+    }
+  }
+}
+
+impl From<PaymentDirection> for ldk_node::PaymentDirection {
+  fn from(value: PaymentDirection) -> Self {
+    match value {
+      PaymentDirection::Inbound => ldk_node::PaymentDirection::Inbound,
+      PaymentDirection::Outbound => ldk_node::PaymentDirection::Outbound,
+    }
+  }
+}
+
+#[napi(object)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PaymentHash {
+  pub field0: Vec<u8>,
+}
+
+impl PaymentHash {
+  pub fn from_ldk_node(hash: ldk_node::lightning::ln::PaymentHash) -> PaymentHash {
+    PaymentHash {
+      field0: hash.0.to_vec(),
+    }
+  }
+
+  pub fn from_nodejs(hash: PaymentHash) -> ldk_node::lightning::ln::PaymentHash {
+    ldk_node::lightning::ln::PaymentHash(hash.field0.to_owned().try_into().unwrap())
+  }
 }

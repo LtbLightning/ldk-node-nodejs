@@ -10,6 +10,8 @@ use std::str::FromStr;
 use utils::node_error;
 use utils::ChannelDetails;
 use utils::ChannelId;
+use utils::PaymentDetails;
+use utils::PaymentHash;
 
 use utils::LogLevel;
 use utils::Network;
@@ -339,7 +341,6 @@ impl Node {
     let response_list = self.inner.list_channels();
     let mut list = Vec::new();
     for item in &response_list {
-      println!("Channel List detail Rust: {:#?}", item);
       list.push(ChannelDetails::new(item.to_owned()));
     }
     list
@@ -349,22 +350,61 @@ impl Node {
   pub fn send_payment(&mut self, invoice: String) -> Result<PaymentHash, Error> {
     let invoice_struct = Invoice::from_str(&invoice).unwrap();
     match self.inner.send_payment(&invoice_struct) {
-      Ok(payment_hash) => Ok(get_payment_hash(payment_hash)),
+      Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
       Err(e) => Err(node_error(e)),
     }
   }
-}
 
-#[napi]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PaymentHash {
-  inner: ldk_node::lightning::ln::PaymentHash,
-  pub field0: Vec<u8>,
-}
+  #[napi]
+  pub fn send_payment_using_amount(
+    &mut self,
+    invoice: String,
+    amount_msat: u32,
+  ) -> Result<PaymentHash, Error> {
+    let invoice_struct = Invoice::from_str(&invoice).unwrap();
+    match self
+      .inner
+      .send_payment_using_amount(&invoice_struct, u64::from(amount_msat))
+    {
+      Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
+      Err(e) => Err(node_error(e)),
+    }
+  }
 
-pub fn get_payment_hash(hash: ldk_node::lightning::ln::PaymentHash) -> PaymentHash {
-  PaymentHash {
-    inner: hash,
-    field0: hash.0.to_vec(),
+  #[napi]
+  pub fn send_spontaneous_payment(
+    &mut self,
+    amount_msat: u32,
+    node_id: &PublicKey,
+  ) -> Result<PaymentHash, Error> {
+    match self
+      .inner
+      .send_spontaneous_payment(u64::from(amount_msat), node_id.inner.to_owned())
+    {
+      Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
+      Err(e) => Err(node_error(e)),
+    }
+  }
+
+  #[napi]
+  pub fn list_payments(&mut self) -> Vec<PaymentDetails> {
+    let payments = self.inner.list_payments();
+    let mut list = Vec::new();
+    for item in &payments {
+      list.push(PaymentDetails::new(item.to_owned()));
+    }
+    list
+  }
+
+  #[napi]
+  pub fn payment(&mut self, payment_hash: PaymentHash) -> Result<PaymentDetails, Error> {
+    let payment = self.inner.payment(&PaymentHash::from_nodejs(payment_hash));
+    Ok(PaymentDetails::new(payment.unwrap()))
+  }
+
+  #[napi]
+  pub fn remove_payment(&mut self, payment_hash: PaymentHash) -> Result<bool, Error> {
+    let payment = self.inner.remove_payment(&PaymentHash::from_nodejs(payment_hash));
+    Ok(payment.unwrap())
   }
 }
