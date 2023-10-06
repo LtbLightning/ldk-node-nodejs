@@ -5,7 +5,7 @@ use napi::bindgen_prelude::ToNapiValue;
 use napi::Error;
 use napi_derive::napi;
 
-use std::fmt::Write;
+use crate::PublicKey;
 
 #[napi(string_enum)]
 pub enum Network {
@@ -70,26 +70,25 @@ impl PeerDetails {
 }
 
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChannelId {
-  pub channel_id_hex: String,
+  pub channel_id_hex: Vec<u8>,
 }
 
 impl ChannelId {
   pub fn from_ldk_node(value: ldk_node::ChannelId) -> Self {
     ChannelId {
-      channel_id_hex: hex_str(&value.0.to_owned()),
+      channel_id_hex: value.0.to_vec(),
     }
   }
 
   pub fn from_nodejs(channel_id: ChannelId) -> ldk_node::ChannelId {
-    let vec = to_vec(&channel_id.channel_id_hex);
-    ldk_node::ChannelId(vec.unwrap().to_owned().try_into().unwrap())
+    ldk_node::ChannelId(channel_id.channel_id_hex.to_owned().try_into().unwrap())
   }
 }
 
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutPoint {
   pub txid: String,
   pub vout: u32,
@@ -105,9 +104,17 @@ impl OutPoint {
 }
 
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserChannelId {
   pub user_channel_id_hex: String,
+}
+
+impl UserChannelId {
+  pub fn from(user_channel_id: ldk_node::UserChannelId) -> Self {
+    UserChannelId {
+      user_channel_id_hex: user_channel_id.0.to_string(),
+    }
+  }
 }
 
 #[napi(object)]
@@ -149,9 +156,7 @@ impl ChannelDetails {
       funding_txo: OutPoint::new(channel.funding_txo),
       channel_value_sats: channel.channel_value_sats as u32,
       unspendable_punishment_reserve: punishment_value,
-      user_channel_id: UserChannelId {
-        user_channel_id_hex: channel.user_channel_id.0.to_string(),
-      },
+      user_channel_id: UserChannelId::from(channel.user_channel_id),
       feerate_sat_per_1000_weight: channel.feerate_sat_per_1000_weight,
       balance_msat: channel.balance_msat as u32,
       outbound_capacity_msat: channel.outbound_capacity_msat as u32,
@@ -365,31 +370,100 @@ impl ChannelConfig {
   }
 }
 
-pub fn hex_str(value: &[u8; 32]) -> String {
-  let mut res = String::with_capacity(2 * value.len());
-  for v in value {
-    write!(&mut res, "{:02x}", v).expect("Unable to write");
-  }
-  res
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Event {
+  /// A sent payment was successful.
+  PaymentSuccessful {
+    /// The hash of the payment.
+    payment_hash: PaymentHash,
+  },
+  /// A sent payment has failed.
+  PaymentFailed {
+    /// The hash of the payment.
+    payment_hash: PaymentHash,
+  },
+  /// A payment has been received.
+  PaymentReceived {
+    /// The hash of the payment.
+    payment_hash: PaymentHash,
+    /// The value, in thousandths of a satoshi, that has been received.
+    amount_msat: u64,
+  },
+  /// A channel is ready to be used.
+  ChannelReady {
+    /// The channel_id of the channel.
+    channel_id: ChannelId,
+    /// The user_channel_id of the channel.
+    user_channel_id: UserChannelId,
+  },
+  /// A channel has been closed.
+  ChannelClosed {
+    /// The channel_id of the channel.
+    channel_id: ChannelId,
+    /// The user_channel_id of the channel.
+    user_channel_id: UserChannelId,
+  },
+  /// A channel has been created and is pending confirmation on-chain.
+  ChannelPending {
+    /// The channel_id of the channel.
+    channel_id: ChannelId,
+    /// The user_channel_id of the channel.
+    user_channel_id: UserChannelId,
+    /// The temporary_channel_id this channel used to be known by during channel establishment.
+    former_temporary_channel_id: ChannelId,
+    /// The node_id of the channel counterparty.
+    counterparty_node_id: PublicKey,
+    /// The outpoint of the channel's funding transaction.
+    funding_txo: OutPoint,
+  },
 }
 
-pub fn to_vec(hex: &str) -> Option<Vec<u8>> {
-  let mut out = Vec::with_capacity(hex.len() / 2);
-
-  let mut b = 0;
-  for (idx, c) in hex.as_bytes().iter().enumerate() {
-    b <<= 4;
-    match *c {
-      b'A'..=b'F' => b |= c - b'A' + 10,
-      b'a'..=b'f' => b |= c - b'a' + 10,
-      b'0'..=b'9' => b |= c - b'0',
-      _ => return None,
-    }
-    if (idx & 1) == 1 {
-      out.push(b);
-      b = 0;
+#[napi]
+impl From<ldk_node::Event> for Event {
+  fn from(value: ldk_node::Event) -> Self {
+    match value {
+      ldk_node::Event::PaymentSuccessful { payment_hash } => Event::PaymentSuccessful {
+        payment_hash: PaymentHash::from_ldk_node(payment_hash),
+      },
+      ldk_node::Event::PaymentFailed { payment_hash } => Event::PaymentFailed {
+        payment_hash: PaymentHash::from_ldk_node(payment_hash),
+      },
+      ldk_node::Event::PaymentReceived {
+        payment_hash,
+        amount_msat,
+      } => Event::PaymentReceived {
+        payment_hash: PaymentHash::from_ldk_node(payment_hash),
+        amount_msat,
+      },
+      ldk_node::Event::ChannelReady {
+        channel_id,
+        user_channel_id,
+      } => Event::ChannelReady {
+        channel_id: ChannelId::from_ldk_node(channel_id),
+        user_channel_id: UserChannelId::from(user_channel_id),
+      },
+      ldk_node::Event::ChannelClosed {
+        channel_id,
+        user_channel_id,
+      } => Event::ChannelClosed {
+        channel_id: ChannelId::from_ldk_node(channel_id),
+        user_channel_id: UserChannelId::from(user_channel_id),
+      },
+      ldk_node::Event::ChannelPending {
+        channel_id,
+        user_channel_id,
+        former_temporary_channel_id,
+        counterparty_node_id,
+        funding_txo,
+      } => Event::ChannelPending {
+        channel_id: ChannelId::from_ldk_node(channel_id),
+        user_channel_id: UserChannelId::from(user_channel_id),
+        former_temporary_channel_id: ChannelId::from_ldk_node(former_temporary_channel_id),
+        counterparty_node_id: PublicKey {
+          inner: counterparty_node_id,
+        },
+        funding_txo: OutPoint::new(Some(funding_txo)).unwrap(),
+      },
     }
   }
-
-  Some(out)
 }

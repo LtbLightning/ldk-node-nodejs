@@ -20,6 +20,7 @@ use utils::LogLevel;
 use utils::Network;
 use utils::PeerDetails;
 
+
 #[napi]
 pub struct NetAddress {
   inner: ldk_node::NetAddress,
@@ -481,5 +482,21 @@ impl Node {
       &ChannelConfig::new(channel_config.to_owned()),
     );
     Ok(true)
+  }
+
+  #[napi]
+  pub async fn next_event(&self) -> String {
+    format!("Next event at rust ==> {:?}", self.inner.next_event())
+  }
+
+  #[napi]
+  pub async fn wait_next_event(&self) -> String {
+    format!("Wait event at rust ==> {:?}", self.inner.wait_next_event())
+  }
+
+  #[napi]
+  pub async fn event_handled(&self) -> String {
+    self.inner.event_handled();
+    format!("Event handled at rust")
   }
 }

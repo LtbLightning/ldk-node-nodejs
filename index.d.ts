@@ -24,7 +24,7 @@ export interface PeerDetails {
   isConnected: boolean
 }
 export interface ChannelId {
-  channelIdHex: string
+  channelIdHex: Array<number>
 }
 export interface OutPoint {
   txid: string
@@ -166,4 +166,7 @@ export class Node {
   signMessage(msg: Array<number>): string
   verifySignature(msg: Array<number>, sig: string, pkey: PublicKey): boolean
   updateChannelConfig(channelId: ChannelId, counterpartyNodeId: PublicKey, channelConfig: ChannelConfig): boolean
+  nextEvent(): Promise<string>
+  waitNextEvent(): Promise<string>
+  eventHandled(): Promise<string>
 }

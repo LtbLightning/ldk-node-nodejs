@@ -1,5 +1,5 @@
 import express from 'express'
-import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey, ChannelId, ChannelConfig } from '../'
+import { LogLevel, Network, Config, Builder, NetAddress, Node, PublicKey, ChannelConfig } from '../'
 
 const app: express.Application = express()
 const port: number = 300
@@ -29,6 +29,16 @@ console.log('Node Started ====>', node.start())
 console.log('Node Id ====>', node.nodeId())
 console.log('Listening Address ====>', node.listeningAddress())
 
+node.nextEvent().then((e) => {
+  console.log('Next event at JS====>', e)
+})
+node.waitNextEvent().then((e) => {
+  console.log('Wait event at JS====>', e)
+})
+node.eventHandled().then((e) => {
+  console.log('Event handled at JS====>', e)
+})
+
 app.get('/', (req, res) => {
   let response = ''
   response += 'Node Id: ' + node.nodeId()
@@ -53,11 +63,11 @@ app.get('/receive', (req, res) => {
 app.get('/send', (req, res) => {
   try {
     let invoice = `${req.query.invoice}`
-    // let response = node.sendPayment(invoice)
+    let response = node.sendPayment(invoice)
     // let response = node.sendPaymentUsingAmount(invoice, 12500)
     // let response = node.sendSpontaneousPayment(12500, new PublicKey(peerConfig.node_id))
     // let txid = node.sendToOnchainAddress({addressHex: 'bcrt1qrcl2q4sh2mvlzlq0rv2q8tnhwldd2sjyvj3lqe'}, 12500)
-    let response = node.sendAllToOnchainAddress({ addressHex: 'bcrt1qrcl2q4sh2mvlzlq0rv2q8tnhwldd2sjyvj3lqe' })
+    // let response = node.sendAllToOnchainAddress({ addressHex: 'bcrt1qrcl2q4sh2mvlzlq0rv2q8tnhwldd2sjyvj3lqe' })
     wrapResponse(res, JSON.stringify(response))
   } catch (e) {
     console.log(e)
