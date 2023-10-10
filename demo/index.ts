@@ -29,15 +29,9 @@ console.log('Node Started ====>', node.start())
 console.log('Node Id ====>', node.nodeId())
 console.log('Listening Address ====>', node.listeningAddress())
 
-node.nextEvent().then((e) => {
-  console.log('Next event at JS====>', e)
-})
-node.waitNextEvent().then((e) => {
-  console.log('Wait event at JS====>', e)
-})
-node.eventHandled().then((e) => {
-  console.log('Event handled at JS====>', e)
-})
+node.nextEvent().then((e) => console.log('Next event at JS====>', e))
+node.waitNextEvent().then((e) => console.log('Wait event at JS====>', e))
+node.eventHandled().then((e) => console.log('Event handled at JS====>', e))
 
 app.get('/', (req, res) => {
   let response = ''
@@ -133,4 +127,21 @@ app.get('/misc', (req, res) => {
     console.log(e)
     wrapResponse(res, 'Failed')
   }
+})
+
+app.get('/test', (req, res) => {
+  res.json({
+    recordId: '113c9992-53d9-5912-91de-fcfbeb5d3201',
+    systemTime: '2023-09-21T10:51:49Z',
+    displayTime: '2023-09-21T02:51:49-08:00',
+    transmitterId: '4475ba13457259d396315e3f313d37f6488d6bde9fadf18d65053b16612bc446',
+    transmitterTicks: 623700,
+    value: 161,
+    trend: 'flat',
+    trendRate: 0.4,
+    unit: 'mg/dL',
+    rateUnit: 'mg/dL/min',
+    displayDevice: 'android',
+    transmitterGeneration: 'g6',
+  })
 })

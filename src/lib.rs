@@ -7,6 +7,7 @@ use ldk_node::lightning_invoice::Invoice;
 use napi::Error;
 use napi_derive::napi;
 use std::str::FromStr;
+use utils::build_error;
 use utils::node_error;
 use utils::Address;
 use utils::ChannelConfig;
@@ -19,7 +20,6 @@ use utils::Txid;
 use utils::LogLevel;
 use utils::Network;
 use utils::PeerDetails;
-
 
 #[napi]
 pub struct NetAddress {
@@ -115,8 +115,10 @@ impl Builder {
 
   #[napi]
   pub fn set_entropy_seed_bytes(&mut self, seed_bytes: Vec<u8>) -> Result<bool, Error> {
-    let _ = self.inner.set_entropy_seed_bytes(seed_bytes);
-    Ok(true)
+    match self.inner.set_entropy_seed_bytes(seed_bytes) {
+      Ok(_builder) => Ok(true),
+      Err(e) => Err(build_error(e)),
+    }
   }
 
   #[napi]
@@ -183,9 +185,13 @@ impl Builder {
 
   #[napi]
   pub fn build(&mut self) -> Result<Node, Error> {
-    Ok(Node {
-      inner: self.inner.build().unwrap(),
-    })
+    let builded = self.inner.build();
+    match builded {
+      Ok(_node) => Ok(Node {
+        inner: self.inner.build().unwrap(),
+      }),
+      Err(e) => Err(build_error(e)),
+    }
   }
 }
 
@@ -198,20 +204,26 @@ pub struct Node {
 impl Node {
   #[napi]
   pub fn start(&mut self) -> Result<bool, Error> {
-    let _ = self.inner.start();
-    Ok(true)
+    match self.inner.start() {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn stop(&mut self) -> Result<bool, Error> {
-    let _ = self.inner.stop();
-    Ok(true)
+    match self.inner.stop() {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn sync_wallets(&mut self) -> Result<bool, Error> {
-    let _ = self.inner.sync_wallets();
-    Ok(true)
+    match self.inner.sync_wallets() {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -231,8 +243,10 @@ impl Node {
 
   #[napi]
   pub fn new_onchain_address(&mut self) -> Result<Address, Error> {
-    let address = self.inner.new_onchain_address();
-    Ok(Address::from_ldk_node(address.unwrap()))
+    match self.inner.new_onchain_address() {
+      Ok(address) => Ok(Address::from_ldk_node(address)),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -241,28 +255,40 @@ impl Node {
     address: Address,
     amount_msat: u32,
   ) -> Result<Txid, Error> {
-    let txid = self
+    match self
       .inner
-      .send_to_onchain_address(&Address::from_nodejs(&address), amount_msat as u64);
-    Ok(Txid::from_ldk_node(txid.unwrap()))
+      .send_to_onchain_address(&Address::from_nodejs(&address), amount_msat as u64)
+    {
+      Ok(txid) => Ok(Txid::from_ldk_node(txid)),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn send_all_to_onchain_address(&mut self, address: Address) -> Result<Txid, Error> {
-    let txid = self
+    match self
       .inner
-      .send_all_to_onchain_address(&Address::from_nodejs(&address));
-    Ok(Txid::from_ldk_node(txid.unwrap()))
+      .send_all_to_onchain_address(&Address::from_nodejs(&address))
+    {
+      Ok(txid) => Ok(Txid::from_ldk_node(txid)),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn spendable_onchain_balance_sats(&mut self) -> Result<u32, Error> {
-    Ok(self.inner.spendable_onchain_balance_sats().unwrap() as u32)
+    match self.inner.spendable_onchain_balance_sats() {
+      Ok(sats) => Ok(sats as u32),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn total_onchain_balance_sats(&mut self) -> Result<u32, Error> {
-    Ok(self.inner.total_onchain_balance_sats().unwrap() as u32)
+    match self.inner.total_onchain_balance_sats() {
+      Ok(sats) => Ok(sats as u32),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -272,16 +298,21 @@ impl Node {
     address: &NetAddress,
     persist: bool,
   ) -> Result<bool, Error> {
-    let _ = self
+    match self
       .inner
-      .connect(node_id.inner.to_owned(), address.inner.to_owned(), persist);
-    Ok(true)
+      .connect(node_id.inner.to_owned(), address.inner.to_owned(), persist)
+    {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn disconnect(&mut self, counterparty_node_id: &PublicKey) -> Result<bool, Error> {
-    let _ = self.inner.disconnect(counterparty_node_id.inner.to_owned());
-    Ok(true)
+    match self.inner.disconnect(counterparty_node_id.inner.to_owned()) {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -300,22 +331,23 @@ impl Node {
     } else {
       remote_msats = Some(push_to_counterparty_msat.unwrap() as u64)
     }
-
     let ch_config;
     if channel_config.is_none() {
       ch_config = None
     } else {
       ch_config = Some(ChannelConfig::new(channel_config.unwrap().to_owned()))
     }
-    let _ = self.inner.connect_open_channel(
+    match self.inner.connect_open_channel(
       node_id.inner.to_owned(),
       address.inner.to_owned(),
       channel_amount_sats as u64,
       remote_msats,
       ch_config,
       announce_channel,
-    );
-    Ok(true)
+    ) {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -341,13 +373,13 @@ impl Node {
     expiry_secs: u32,
   ) -> Result<String, Error> {
     let desc = description.as_str();
-    Ok(
-      self
-        .inner
-        .receive_payment(u64::from(amount_msat), desc, expiry_secs)
-        .unwrap()
-        .to_string(),
-    )
+    match self
+      .inner
+      .receive_payment(u64::from(amount_msat), desc, expiry_secs)
+    {
+      Ok(invoice) => Ok(invoice.to_string()),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -357,13 +389,13 @@ impl Node {
     expiry_secs: u32,
   ) -> Result<String, Error> {
     let desc = description.as_str();
-    Ok(
-      self
-        .inner
-        .receive_variable_amount_payment(desc, expiry_secs)
-        .unwrap()
-        .to_string(),
-    )
+    match self
+      .inner
+      .receive_variable_amount_payment(desc, expiry_secs)
+    {
+      Ok(invoice) => Ok(invoice.to_string()),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
@@ -437,36 +469,35 @@ impl Node {
   }
 
   #[napi]
-  pub fn payment(&mut self, payment_hash: PaymentHash) -> Result<PaymentDetails, Error> {
+  pub fn payment(&mut self, payment_hash: PaymentHash) -> PaymentDetails {
     let payment = self.inner.payment(&PaymentHash::from_nodejs(payment_hash));
-    Ok(PaymentDetails::new(payment.unwrap()))
+    PaymentDetails::new(payment.unwrap())
   }
 
   #[napi]
   pub fn remove_payment(&mut self, payment_hash: PaymentHash) -> Result<bool, Error> {
-    let payment = self
+    match self
       .inner
-      .remove_payment(&PaymentHash::from_nodejs(payment_hash));
-    Ok(payment.unwrap())
+      .remove_payment(&PaymentHash::from_nodejs(payment_hash))
+    {
+      Ok(payment) => Ok(payment),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
   pub fn sign_message(&mut self, msg: Vec<u8>) -> Result<String, Error> {
-    let msg = self.inner.sign_message(&msg);
-    Ok(msg.unwrap())
+    match self.inner.sign_message(&msg) {
+      Ok(signed) => Ok(signed),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
-  pub fn verify_signature(
-    &mut self,
-    msg: Vec<u8>,
-    sig: String,
-    pkey: &PublicKey,
-  ) -> Result<bool, Error> {
-    let verified = self
+  pub fn verify_signature(&mut self, msg: Vec<u8>, sig: String, pkey: &PublicKey) -> bool {
+    self
       .inner
-      .verify_signature(&msg, &sig, &pkey.inner.to_owned());
-    Ok(verified)
+      .verify_signature(&msg, &sig, &pkey.inner.to_owned())
   }
 
   #[napi]
@@ -476,12 +507,15 @@ impl Node {
     counterparty_node_id: &PublicKey,
     channel_config: &ChannelConfig,
   ) -> Result<bool, Error> {
-    let _ = self.inner.update_channel_config(
+    let updated = self.inner.update_channel_config(
       &ChannelId::from_nodejs(channel_id),
       counterparty_node_id.inner.to_owned(),
       &ChannelConfig::new(channel_config.to_owned()),
     );
-    Ok(true)
+    match updated {
+      Ok(()) => Ok(true),
+      Err(e) => Err(node_error(e)),
+    }
   }
 
   #[napi]
