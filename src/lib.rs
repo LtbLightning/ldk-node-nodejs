@@ -21,6 +21,10 @@ use utils::LogLevel;
 use utils::Network;
 use utils::PeerDetails;
 
+use ldk_node::Event;
+
+use crate::utils::get_event;
+
 #[napi]
 pub struct NetAddress {
   inner: ldk_node::NetAddress,
@@ -187,9 +191,7 @@ impl Builder {
   pub fn build(&mut self) -> Result<Node, Error> {
     let builded = self.inner.build();
     match builded {
-      Ok(_node) => Ok(Node {
-        inner: self.inner.build().unwrap(),
-      }),
+      Ok(node) => Ok(Node { inner: node }),
       Err(e) => Err(build_error(e)),
     }
   }
@@ -520,12 +522,19 @@ impl Node {
 
   #[napi]
   pub async fn next_event(&self) -> String {
+    let native_event = self.inner.next_event();
+    if !native_event.is_none() {
+      let res = get_event(native_event.unwrap());
+    }
+
     format!("Next event at rust ==> {:?}", self.inner.next_event())
   }
 
   #[napi]
   pub async fn wait_next_event(&self) -> String {
-    format!("Wait event at rust ==> {:?}", self.inner.wait_next_event())
+    let native_event = self.inner.wait_next_event();
+    let res = get_event(native_event);
+    format!("Wait event at rust ==> {:?}", res)
   }
 
   #[napi]

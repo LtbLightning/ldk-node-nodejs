@@ -1,7 +1,10 @@
+use std::any::Any;
+use std::fmt::format;
 use std::str::FromStr;
 
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
+use napi::CallContext;
 use napi::Error;
 use napi_derive::napi;
 
@@ -370,100 +373,85 @@ impl ChannelConfig {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Event {
-  /// A sent payment was successful.
-  PaymentSuccessful {
-    /// The hash of the payment.
-    payment_hash: PaymentHash,
-  },
-  /// A sent payment has failed.
-  PaymentFailed {
-    /// The hash of the payment.
-    payment_hash: PaymentHash,
-  },
-  /// A payment has been received.
-  PaymentReceived {
-    /// The hash of the payment.
-    payment_hash: PaymentHash,
-    /// The value, in thousandths of a satoshi, that has been received.
-    amount_msat: u64,
-  },
-  /// A channel is ready to be used.
-  ChannelReady {
-    /// The channel_id of the channel.
-    channel_id: ChannelId,
-    /// The user_channel_id of the channel.
-    user_channel_id: UserChannelId,
-  },
-  /// A channel has been closed.
-  ChannelClosed {
-    /// The channel_id of the channel.
-    channel_id: ChannelId,
-    /// The user_channel_id of the channel.
-    user_channel_id: UserChannelId,
-  },
-  /// A channel has been created and is pending confirmation on-chain.
-  ChannelPending {
-    /// The channel_id of the channel.
-    channel_id: ChannelId,
-    /// The user_channel_id of the channel.
-    user_channel_id: UserChannelId,
-    /// The temporary_channel_id this channel used to be known by during channel establishment.
-    former_temporary_channel_id: ChannelId,
-    /// The node_id of the channel counterparty.
-    counterparty_node_id: PublicKey,
-    /// The outpoint of the channel's funding transaction.
-    funding_txo: OutPoint,
-  },
+#[napi]
+pub struct ChannelPending {
+  channel_id: ChannelId,
+  user_channel_id: UserChannelId,
+  former_temporary_channel_id: ChannelId,
+  counterparty_node_id: PublicKey,
+  funding_txo: OutPoint,
+}
+
+#[napi(object)]
+pub struct PaymentSuccessful {
+  pub payment_hash: PaymentHash,
 }
 
 #[napi]
-impl From<ldk_node::Event> for Event {
-  fn from(value: ldk_node::Event) -> Self {
-    match value {
-      ldk_node::Event::PaymentSuccessful { payment_hash } => Event::PaymentSuccessful {
-        payment_hash: PaymentHash::from_ldk_node(payment_hash),
+pub struct PaymentFailed {
+  payment_hash: PaymentHash,
+}
+#[napi]
+pub struct PaymentReceived {
+  payment_hash: PaymentHash,
+  amount_msat: u64,
+}
+#[napi]
+pub struct ChannelReady {
+  channel_id: ChannelId,
+  user_channel_id: UserChannelId,
+}
+#[napi]
+pub struct ChannelClosed {
+  channel_id: ChannelId,
+  user_channel_id: UserChannelId,
+}
+
+pub fn get_event(value: ldk_node::Event) -> String {
+  let ev: Box<dyn Any> = match value {
+    ldk_node::Event::PaymentSuccessful { payment_hash } => Box::new(PaymentSuccessful {
+      payment_hash: PaymentHash::from_ldk_node(payment_hash),
+    }),
+    ldk_node::Event::PaymentFailed { payment_hash } => Box::new(PaymentFailed {
+      payment_hash: PaymentHash::from_ldk_node(payment_hash),
+    }),
+    ldk_node::Event::PaymentReceived {
+      payment_hash,
+      amount_msat,
+    } => Box::new(PaymentReceived {
+      payment_hash: PaymentHash::from_ldk_node(payment_hash),
+      amount_msat,
+    }),
+    ldk_node::Event::ChannelReady {
+      channel_id,
+      user_channel_id,
+    } => Box::new(ChannelReady {
+      channel_id: ChannelId::from_ldk_node(channel_id),
+      user_channel_id: UserChannelId::from(user_channel_id),
+    }),
+    ldk_node::Event::ChannelClosed {
+      channel_id,
+      user_channel_id,
+    } => Box::new(ChannelClosed {
+      channel_id: ChannelId::from_ldk_node(channel_id),
+      user_channel_id: UserChannelId::from(user_channel_id),
+    }),
+    ldk_node::Event::ChannelPending {
+      channel_id,
+      user_channel_id,
+      former_temporary_channel_id,
+      counterparty_node_id,
+      funding_txo,
+    } => Box::new(ChannelPending {
+      channel_id: ChannelId::from_ldk_node(channel_id),
+      user_channel_id: UserChannelId::from(user_channel_id),
+      former_temporary_channel_id: ChannelId::from_ldk_node(former_temporary_channel_id),
+      counterparty_node_id: PublicKey {
+        inner: counterparty_node_id,
       },
-      ldk_node::Event::PaymentFailed { payment_hash } => Event::PaymentFailed {
-        payment_hash: PaymentHash::from_ldk_node(payment_hash),
-      },
-      ldk_node::Event::PaymentReceived {
-        payment_hash,
-        amount_msat,
-      } => Event::PaymentReceived {
-        payment_hash: PaymentHash::from_ldk_node(payment_hash),
-        amount_msat,
-      },
-      ldk_node::Event::ChannelReady {
-        channel_id,
-        user_channel_id,
-      } => Event::ChannelReady {
-        channel_id: ChannelId::from_ldk_node(channel_id),
-        user_channel_id: UserChannelId::from(user_channel_id),
-      },
-      ldk_node::Event::ChannelClosed {
-        channel_id,
-        user_channel_id,
-      } => Event::ChannelClosed {
-        channel_id: ChannelId::from_ldk_node(channel_id),
-        user_channel_id: UserChannelId::from(user_channel_id),
-      },
-      ldk_node::Event::ChannelPending {
-        channel_id,
-        user_channel_id,
-        former_temporary_channel_id,
-        counterparty_node_id,
-        funding_txo,
-      } => Event::ChannelPending {
-        channel_id: ChannelId::from_ldk_node(channel_id),
-        user_channel_id: UserChannelId::from(user_channel_id),
-        former_temporary_channel_id: ChannelId::from_ldk_node(former_temporary_channel_id),
-        counterparty_node_id: PublicKey {
-          inner: counterparty_node_id,
-        },
-        funding_txo: OutPoint::new(Some(funding_txo)).unwrap(),
-      },
-    }
-  }
+      funding_txo: OutPoint::new(Some(funding_txo)).unwrap(),
+    }),
+  };
+
+  format!("Parse each event {:#?}", value)
 }

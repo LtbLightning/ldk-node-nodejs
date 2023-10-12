@@ -240,6 +240,11 @@ const {
   PaymentStatus,
   PaymentDirection,
   ChannelConfig,
+  ChannelPending,
+  PaymentFailed,
+  PaymentReceived,
+  ChannelReady,
+  ChannelClosed,
   NetAddress,
   PublicKey,
   Config,
@@ -252,6 +257,11 @@ module.exports.LogLevel = LogLevel
 module.exports.PaymentStatus = PaymentStatus
 module.exports.PaymentDirection = PaymentDirection
 module.exports.ChannelConfig = ChannelConfig
+module.exports.ChannelPending = ChannelPending
+module.exports.PaymentFailed = PaymentFailed
+module.exports.PaymentReceived = PaymentReceived
+module.exports.ChannelReady = ChannelReady
+module.exports.ChannelClosed = ChannelClosed
 module.exports.NetAddress = NetAddress
 module.exports.PublicKey = PublicKey
 module.exports.Config = Config

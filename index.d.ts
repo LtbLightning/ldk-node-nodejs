@@ -84,6 +84,9 @@ export interface Address {
 export interface Txid {
   feild0: string
 }
+export interface PaymentSuccessful {
+  paymentHash: PaymentHash
+}
 export class ChannelConfig {
   forwardingFeeProportionalMillionths: number
   forwardingFeeBaseMsat: number
@@ -98,6 +101,11 @@ export class ChannelConfig {
     forceCloseAvoidanceMaxFeeSatoshis: number,
   )
 }
+export class ChannelPending {}
+export class PaymentFailed {}
+export class PaymentReceived {}
+export class ChannelReady {}
+export class ChannelClosed {}
 export class NetAddress {
   constructor(ipv4: string, port: number)
 }
