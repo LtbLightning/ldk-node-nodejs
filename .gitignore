@@ -119,7 +119,6 @@ dist
 /target
 Cargo.lock
 
-*.node
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -129,4 +128,6 @@ Cargo.lock
 !.yarn/versions
 
 temp/
+
+.DS_Store
 .vscode/settings.json
