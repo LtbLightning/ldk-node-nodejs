@@ -7,7 +7,6 @@ use ldk_node::lightning_invoice::Invoice;
 use napi::Error;
 use napi_derive::napi;
 use std::str::FromStr;
-use utils::build_error;
 use utils::node_error;
 use utils::Address;
 use utils::ChannelConfig;
@@ -20,8 +19,6 @@ use utils::Txid;
 use utils::LogLevel;
 use utils::Network;
 use utils::PeerDetails;
-
-use ldk_node::Event;
 
 use crate::utils::get_event;
 
@@ -121,7 +118,7 @@ impl Builder {
   pub fn set_entropy_seed_bytes(&mut self, seed_bytes: Vec<u8>) -> Result<bool, Error> {
     match self.inner.set_entropy_seed_bytes(seed_bytes) {
       Ok(_builder) => Ok(true),
-      Err(e) => Err(build_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -131,7 +128,11 @@ impl Builder {
     mnemonic: String,
     passphrase: Option<String>,
   ) -> Result<bool, Error> {
-    let mnemonic_seed = Mnemonic::from_str(&mnemonic).unwrap();
+    let mnemonic_seed = Mnemonic::from_str(&mnemonic);
+    let cloned_seed = mnemonic_seed.clone();
+    if cloned_seed.is_err() {
+      return Err(node_error(cloned_seed.err().unwrap().to_string()));
+    }
     let password = Some(if passphrase != None {
       passphrase.unwrap()
     } else {
@@ -139,7 +140,7 @@ impl Builder {
     });
     self
       .inner
-      .set_entropy_bip39_mnemonic(mnemonic_seed, password);
+      .set_entropy_bip39_mnemonic(mnemonic_seed.unwrap(), password);
     Ok(true)
   }
 
@@ -192,7 +193,7 @@ impl Builder {
     let builded = self.inner.build();
     match builded {
       Ok(node) => Ok(Node { inner: node }),
-      Err(e) => Err(build_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 }
@@ -208,7 +209,7 @@ impl Node {
   pub fn start(&mut self) -> Result<bool, Error> {
     match self.inner.start() {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -216,7 +217,7 @@ impl Node {
   pub fn stop(&mut self) -> Result<bool, Error> {
     match self.inner.stop() {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -224,7 +225,7 @@ impl Node {
   pub fn sync_wallets(&mut self) -> Result<bool, Error> {
     match self.inner.sync_wallets() {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -237,9 +238,9 @@ impl Node {
   pub fn listening_address(&mut self) -> Option<String> {
     let address = self.inner.listening_address();
     if address.is_none() {
-      return None;
+      None
     } else {
-      return Some(address.unwrap().to_owned().to_string());
+      Some(address.unwrap().to_owned().to_string())
     }
   }
 
@@ -247,7 +248,7 @@ impl Node {
   pub fn new_onchain_address(&mut self) -> Result<Address, Error> {
     match self.inner.new_onchain_address() {
       Ok(address) => Ok(Address::from_ldk_node(address)),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -262,7 +263,7 @@ impl Node {
       .send_to_onchain_address(&Address::from_nodejs(&address), amount_msat as u64)
     {
       Ok(txid) => Ok(Txid::from_ldk_node(txid)),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -273,7 +274,7 @@ impl Node {
       .send_all_to_onchain_address(&Address::from_nodejs(&address))
     {
       Ok(txid) => Ok(Txid::from_ldk_node(txid)),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -281,7 +282,7 @@ impl Node {
   pub fn spendable_onchain_balance_sats(&mut self) -> Result<u32, Error> {
     match self.inner.spendable_onchain_balance_sats() {
       Ok(sats) => Ok(sats as u32),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -289,7 +290,7 @@ impl Node {
   pub fn total_onchain_balance_sats(&mut self) -> Result<u32, Error> {
     match self.inner.total_onchain_balance_sats() {
       Ok(sats) => Ok(sats as u32),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -305,7 +306,7 @@ impl Node {
       .connect(node_id.inner.to_owned(), address.inner.to_owned(), persist)
     {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -313,7 +314,7 @@ impl Node {
   pub fn disconnect(&mut self, counterparty_node_id: &PublicKey) -> Result<bool, Error> {
     match self.inner.disconnect(counterparty_node_id.inner.to_owned()) {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -348,7 +349,7 @@ impl Node {
       announce_channel,
     ) {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -363,7 +364,7 @@ impl Node {
       counterparty_node_id.inner.to_owned(),
     ) {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -380,7 +381,7 @@ impl Node {
       .receive_payment(u64::from(amount_msat), desc, expiry_secs)
     {
       Ok(invoice) => Ok(invoice.to_string()),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -396,16 +397,19 @@ impl Node {
       .receive_variable_amount_payment(desc, expiry_secs)
     {
       Ok(invoice) => Ok(invoice.to_string()),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
   #[napi]
   pub fn send_payment(&mut self, invoice: String) -> Result<PaymentHash, Error> {
-    let invoice_struct = Invoice::from_str(&invoice).unwrap();
-    match self.inner.send_payment(&invoice_struct) {
-      Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
-      Err(e) => Err(node_error(e)),
+    let invoice_struct = Invoice::from_str(&invoice);
+    match invoice_struct {
+      Ok(invoice) => match self.inner.send_payment(&invoice) {
+        Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
+        Err(e) => Err(node_error(e.to_string())),
+      },
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -415,13 +419,16 @@ impl Node {
     invoice: String,
     amount_msat: u32,
   ) -> Result<PaymentHash, Error> {
-    let invoice_struct = Invoice::from_str(&invoice).unwrap();
-    match self
-      .inner
-      .send_payment_using_amount(&invoice_struct, u64::from(amount_msat))
-    {
-      Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
-      Err(e) => Err(node_error(e)),
+    let invoice_struct = Invoice::from_str(&invoice);
+    match invoice_struct {
+      Ok(invoice) => match self
+        .inner
+        .send_payment_using_amount(&invoice, u64::from(amount_msat))
+      {
+        Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
+        Err(e) => Err(node_error(e.to_string())),
+      },
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -436,7 +443,7 @@ impl Node {
       .send_spontaneous_payment(u64::from(amount_msat), node_id.inner.to_owned())
     {
       Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -483,7 +490,7 @@ impl Node {
       .remove_payment(&PaymentHash::from_nodejs(payment_hash))
     {
       Ok(payment) => Ok(payment),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -491,7 +498,7 @@ impl Node {
   pub fn sign_message(&mut self, msg: Vec<u8>) -> Result<String, Error> {
     match self.inner.sign_message(&msg) {
       Ok(signed) => Ok(signed),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 
@@ -516,7 +523,7 @@ impl Node {
     );
     match updated {
       Ok(()) => Ok(true),
-      Err(e) => Err(node_error(e)),
+      Err(e) => Err(node_error(e.to_string())),
     }
   }
 

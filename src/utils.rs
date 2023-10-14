@@ -175,12 +175,8 @@ impl ChannelDetails {
   }
 }
 
-pub fn node_error(e: ldk_node::NodeError) -> napi::Error {
-  Error::new(napi::Status::GenericFailure, e.to_string())
-}
-
-pub fn build_error(e: ldk_node::BuildError) -> napi::Error {
-  Error::new(napi::Status::GenericFailure, e.to_string())
+pub fn node_error(e: String) -> napi::Error {
+  Error::new(napi::Status::GenericFailure, e)
 }
 
 #[napi(object)]
