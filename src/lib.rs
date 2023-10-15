@@ -283,17 +283,17 @@ impl Node {
   }
 
   #[napi]
-  pub fn spendable_onchain_balance_sats(&mut self) -> Result<u32, Error> {
+  pub fn spendable_onchain_balance_sats(&mut self) -> Result<u64, Error> {
     match self.inner.spendable_onchain_balance_sats() {
-      Ok(sats) => Ok(sats as u32),
+      Ok(sats) => Ok(sats),
       Err(e) => Err(node_error(e.to_string())),
     }
   }
 
   #[napi]
-  pub fn total_onchain_balance_sats(&mut self) -> Result<u32, Error> {
+  pub fn total_onchain_balance_sats(&mut self) -> Result<u64, Error> {
     match self.inner.total_onchain_balance_sats() {
-      Ok(sats) => Ok(sats as u32),
+      Ok(sats) => Ok(sats),
       Err(e) => Err(node_error(e.to_string())),
     }
   }

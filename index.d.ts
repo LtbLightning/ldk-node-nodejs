@@ -152,8 +152,8 @@ export class Node {
   newOnchainAddress(): Address
   sendToOnchainAddress(address: Address, amountMsat: number): Txid
   sendAllToOnchainAddress(address: Address): Txid
-  spendableOnchainBalanceSats(): number
-  totalOnchainBalanceSats(): number
+  spendableOnchainBalanceSats(): bigint
+  totalOnchainBalanceSats(): bigint
   connect(nodeId: PublicKey, address: NetAddress, persist: boolean): boolean
   disconnect(counterpartyNodeId: PublicKey): boolean
   connectOpenChannel(
