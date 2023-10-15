@@ -3,7 +3,7 @@ pub mod utils;
 
 use ldk_node::bip39::Mnemonic;
 use ldk_node::io::SqliteStore;
-use ldk_node::lightning_invoice::Invoice;
+use ldk_node::lightning_invoice::Bolt11Invoice;
 use napi::Error;
 use napi_derive::napi;
 use std::str::FromStr;
@@ -64,16 +64,19 @@ impl Config {
   #[napi(constructor)]
   pub fn new(
     storage_dir_path: String,
+    log_dir_path: Option<String>,
     network: Network,
     listening_address: &NetAddress,
     default_cltv_expiry_delta: u32,
     onchain_wallet_sync_interval_secs: u32,
     wallet_sync_interval_secs: u32,
     fee_rate_cache_update_interval_secs: u32,
+    probing_liquidity_limit_multiplier: u32,
     log_level: LogLevel,
   ) -> Result<Self, Error> {
     let config = ldk_node::Config {
       storage_dir_path: storage_dir_path,
+      log_dir_path: log_dir_path,
       network: network.into(),
       listening_address: Some(listening_address.inner.to_owned()),
       default_cltv_expiry_delta: default_cltv_expiry_delta,
@@ -81,6 +84,7 @@ impl Config {
       wallet_sync_interval_secs: u64::from(wallet_sync_interval_secs),
       fee_rate_cache_update_interval_secs: u64::from(fee_rate_cache_update_interval_secs),
       trusted_peers_0conf: Vec::new(),
+      probing_liquidity_limit_multiplier: probing_liquidity_limit_multiplier as u64,
       log_level: log_level.into(),
     };
     Ok(Config { inner: config })
@@ -403,7 +407,7 @@ impl Node {
 
   #[napi]
   pub fn send_payment(&mut self, invoice: String) -> Result<PaymentHash, Error> {
-    let invoice_struct = Invoice::from_str(&invoice);
+    let invoice_struct = Bolt11Invoice::from_str(&invoice);
     match invoice_struct {
       Ok(invoice) => match self.inner.send_payment(&invoice) {
         Ok(payment_hash) => Ok(PaymentHash::from_ldk_node(payment_hash)),
@@ -419,7 +423,7 @@ impl Node {
     invoice: String,
     amount_msat: u32,
   ) -> Result<PaymentHash, Error> {
-    let invoice_struct = Invoice::from_str(&invoice);
+    let invoice_struct = Bolt11Invoice::from_str(&invoice);
     match invoice_struct {
       Ok(invoice) => match self
         .inner
@@ -489,7 +493,7 @@ impl Node {
       .inner
       .remove_payment(&PaymentHash::from_nodejs(payment_hash))
     {
-      Ok(payment) => Ok(payment),
+      Ok(()) => Ok(true),
       Err(e) => Err(node_error(e.to_string())),
     }
   }
@@ -519,7 +523,7 @@ impl Node {
     let updated = self.inner.update_channel_config(
       &ChannelId::from_nodejs(channel_id),
       counterparty_node_id.inner.to_owned(),
-      &ChannelConfig::new(channel_config.to_owned()),
+      ChannelConfig::new(channel_config.to_owned()),
     );
     match updated {
       Ok(()) => Ok(true),
@@ -530,11 +534,12 @@ impl Node {
   #[napi]
   pub async fn next_event(&self) -> String {
     let native_event = self.inner.next_event();
+    let mut res = "".to_string();
     if !native_event.is_none() {
-      let res = get_event(native_event.unwrap());
+      res = get_event(native_event.unwrap());
     }
 
-    format!("Next event at rust ==> {:?}", self.inner.next_event())
+    format!("Next event at rust ==> {:?}", res)
   }
 
   #[napi]

@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::fmt::format;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
@@ -351,21 +352,27 @@ pub struct ChannelConfig {
   pub forwarding_fee_proportional_millionths: u32,
   pub forwarding_fee_base_msat: u32,
   pub cltv_expiry_delta: u16,
-  pub max_dust_htlc_exposure_msat: u32,
+  pub max_dust_htlc_exposure: u32,
   pub force_close_avoidance_max_fee_satoshis: u32,
+  pub accept_underpaying_htlcs: bool,
 }
 
 #[napi]
 impl ChannelConfig {
-  pub fn new(channel_config: ChannelConfig) -> ldk_node::lightning::util::config::ChannelConfig {
-    ldk_node::lightning::util::config::ChannelConfig {
+  pub fn new(channel_config: ChannelConfig) -> Arc<ldk_node::ChannelConfig> {
+    let config = ldk_node::lightning::util::config::ChannelConfig {
       forwarding_fee_proportional_millionths: channel_config.forwarding_fee_proportional_millionths,
       forwarding_fee_base_msat: channel_config.forwarding_fee_base_msat,
       cltv_expiry_delta: channel_config.cltv_expiry_delta,
-      max_dust_htlc_exposure_msat: channel_config.max_dust_htlc_exposure_msat as u64,
+      max_dust_htlc_exposure:
+        ldk_node::lightning::util::config::MaxDustHTLCExposure::FeeRateMultiplier(
+          channel_config.max_dust_htlc_exposure as u64,
+        ),
       force_close_avoidance_max_fee_satoshis: channel_config.force_close_avoidance_max_fee_satoshis
         as u64,
-    }
+      accept_underpaying_htlcs: channel_config.accept_underpaying_htlcs,
+    };
+    Arc::new(ldk_node::ChannelConfig::try_from(config).unwrap())
   }
 }
 

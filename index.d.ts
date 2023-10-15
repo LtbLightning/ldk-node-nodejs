@@ -91,14 +91,16 @@ export class ChannelConfig {
   forwardingFeeProportionalMillionths: number
   forwardingFeeBaseMsat: number
   cltvExpiryDelta: number
-  maxDustHtlcExposureMsat: number
+  maxDustHtlcExposure: number
   forceCloseAvoidanceMaxFeeSatoshis: number
+  acceptUnderpayingHtlcs: boolean
   constructor(
     forwardingFeeProportionalMillionths: number,
     forwardingFeeBaseMsat: number,
     cltvExpiryDelta: number,
-    maxDustHtlcExposureMsat: number,
+    maxDustHtlcExposure: number,
     forceCloseAvoidanceMaxFeeSatoshis: number,
+    acceptUnderpayingHtlcs: boolean,
   )
 }
 export class ChannelPending {}
@@ -115,12 +117,14 @@ export class PublicKey {
 export class Config {
   constructor(
     storageDirPath: string,
+    logDirPath: string | undefined | null,
     network: Network,
     listeningAddress: NetAddress,
     defaultCltvExpiryDelta: number,
     onchainWalletSyncIntervalSecs: number,
     walletSyncIntervalSecs: number,
     feeRateCacheUpdateIntervalSecs: number,
+    probingLiquidityLimitMultiplier: number,
     logLevel: LogLevel,
   )
 }
