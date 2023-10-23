@@ -1,11 +1,8 @@
-use std::any::Any;
-use std::fmt::format;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use napi::bindgen_prelude::FromNapiValue;
 use napi::bindgen_prelude::ToNapiValue;
-use napi::CallContext;
 use napi::Error;
 use napi_derive::napi;
 
@@ -411,50 +408,5 @@ pub struct ChannelClosed {
 }
 
 pub fn get_event(value: ldk_node::Event) -> String {
-  // let ev = match value {
-  //   ldk_node::Event::PaymentSuccessful { payment_hash } => PaymentSuccessful {
-  //     payment_hash: PaymentHash::from_ldk_node(payment_hash),
-  //   },
-  //   ldk_node::Event::PaymentFailed { payment_hash } => PaymentFailed {
-  //     payment_hash: PaymentHash::from_ldk_node(payment_hash),
-  //   },
-  //   ldk_node::Event::PaymentReceived {
-  //     payment_hash,
-  //     amount_msat,
-  //   } => PaymentReceived {
-  //     payment_hash: PaymentHash::from_ldk_node(payment_hash),
-  //     amount_msat,
-  //   },
-  //   ldk_node::Event::ChannelReady {
-  //     channel_id,
-  //     user_channel_id,
-  //   } => ChannelReady {
-  //     channel_id: ChannelId::from_ldk_node(channel_id),
-  //     user_channel_id: UserChannelId::from(user_channel_id),
-  //   },
-  //   ldk_node::Event::ChannelClosed {
-  //     channel_id,
-  //     user_channel_id,
-  //   } => ChannelClosed {
-  //     channel_id: ChannelId::from_ldk_node(channel_id),
-  //     user_channel_id: UserChannelId::from(user_channel_id),
-  //   },
-  //   ldk_node::Event::ChannelPending {
-  //     channel_id,
-  //     user_channel_id,
-  //     former_temporary_channel_id,
-  //     counterparty_node_id,
-  //     funding_txo,
-  //   } => ChannelPending {
-  //     channel_id: ChannelId::from_ldk_node(channel_id),
-  //     user_channel_id: UserChannelId::from(user_channel_id),
-  //     former_temporary_channel_id: ChannelId::from_ldk_node(former_temporary_channel_id),
-  //     counterparty_node_id: PublicKey {
-  //       inner: counterparty_node_id,
-  //     },
-  //     funding_txo: OutPoint::new(Some(funding_txo)).unwrap(),
-  //   },
-  // };
-
   format!("Parse each event {:#?}", value)
 }
